@@ -1,0 +1,117 @@
+/* 
+  Localizable.strings
+  BatteryMonitor
+
+  Created by Agent.
+*/
+
+// Status Bar & Menu Placeholders
+"status.battery_info.placeholder" = "电量: -- / -- mAh (--%) ";
+"status.power_info.placeholder" = "功率: -- W · -- mA";
+"status.time.remaining.placeholder" = "剩余时间: --";
+"status.temp_voltage.placeholder" = "温度: --°C · 电压: -- V";
+"status.consumed.placeholder" = "已消耗: -- mAh (--%) · --:--:--";
+"status.average.placeholder" = "平均: -- mAh/h";
+"status.health.info.placeholder" = "健康: --% · 循环: -- · 设计: -- mAh";
+
+// Menu Items
+"menu.app_energy_history" = "应用能耗历史";
+"menu.past_hours" = "过去 %d 小时";
+"menu.current_active_apps" = "当前活跃应用 (实时)";
+"menu.show_more" = "显示更多...";
+"menu.show_more_count" = "显示更多 (%d 个)...";
+"menu.collapse" = "收起";
+"menu.reset_stats" = "重置消耗统计";
+"menu.about" = "关于 静•电";
+"menu.help" = "帮助 / GitHub 主页";
+"menu.donate" = "打赏支持";
+"menu.export_report" = "导出能耗报告";
+"menu.export_csv" = "导出为 CSV";
+"menu.export_json" = "导出为 JSON";
+"menu.launch_at_login" = "开机自启动";
+"menu.quit" = "退出 静•电";
+"menu.force_quit" = "强制退出 %@";
+"menu.force_quit_short" = "强制退出";
+"menu.no_data" = "暂无数据 (需运行一段时间)";
+"menu.total_drain" = "总消耗: %d mAh (%d%%)";
+"menu.show_more_apps" = "▼ 显示更多...";
+"menu.today_app_ranking" = "今日应用耗电排行";
+"menu.more_history" = "更多历史记录...";
+
+// Battery Chart
+"chart.no_data" = "暂无数据，请运行一段时间...";
+"time.two_days_ago" = "前天";
+"time.yesterday" = "昨天";
+"time.now" = "现在";
+"chart.cpu_usage_48h" = "48小时 CPU 占用";
+
+// Status Updates
+"status.charging" = "充电: %.2f W · +%d mA %@";
+"status.charged" = "已充满: %.2f W · %d mA %@";
+"status.discharging" = "放电: %.2f W · %d mA %@";
+
+"time.charge_full_hm" = "预计充满: %d小时%d分钟";
+"time.charge_full_m" = "预计充满: %d分钟";
+"time.battery_full" = "电池已充满";
+"time.calculating_charge" = "正在计算充电时间...";
+"time.full_ac" = "电池已充满 · 使用交流电源";
+"time.remaining_hm" = "剩余时间: %d小时%d分钟";
+"time.remaining_m" = "剩余时间: %d分钟";
+"time.remaining_approx_hm" = "剩余时间: 约%d小时%d分钟";
+"time.remaining_approx_m" = "剩余时间: 约%d分钟";
+"time.calculating_remaining" = "正在计算剩余时间...";
+
+"status.temp_voltage" = "温度: %.1f°C · 电压: %.2f V";
+"status.consumed" = "已消耗: %d mAh (%d%%) · %@";
+"status.average" = "平均: %d mAh/h";
+"status.health" = "健康: %d%% · 循环: %d · 设计: %d mAh";
+"status.battery_info" = "电量: %d / %d mAh (%d%%)";
+
+// Alerts
+"alert.about.title" = "静•电";
+"alert.about.message" = "版本 1.0.0\n\n一款简洁的 macOS 电池监控工具。\n实时显示电池状态和应用能耗。";
+"alert.ok" = "确定";
+"alert.github" = "前往 GitHub";
+"alert.cancel" = "取消";
+
+"alert.donate.title" = "打赏支持";
+"alert.donate.message" = "如果您觉得这款应用对您有帮助，\n欢迎通过 GitHub 页面打赏支持开发者。\n\n感谢您的支持！❤️";
+
+"alert.export.success" = "导出成功";
+"alert.export.saved" = "能耗报告已保存到:\n%@";
+"alert.show_in_finder" = "在访达中显示";
+
+"alert.export.fail" = "导出失败";
+"alert.export.error" = "无法保存文件: %@";
+
+"alert.app_not_found.title" = "找不到应用";
+"alert.app_not_found.message" = "无法在访达中找到 \"%@\"\u3002\n这可能是一个系统进程或后台服务。";
+
+"alert.force_quit_fail.title" = "无法强制退出";
+"alert.force_quit_fail.message" = "找不到应用 \"%@\" 的进程，它可能已经关闭。";
+
+"save_panel.csv.title" = "导出能耗报告 (CSV)";
+"save_panel.json.title" = "导出能耗报告 (JSON)";
+"save_panel.csv.name" = "能耗报告_%d小时.csv";
+"save_panel.json.name" = "能耗报告_%d小时.json";
+
+// CSV/JSON Export
+"csv.header" = "应用名称,CPU占比(%),估算能耗(mAh),能耗百分比(%),状态\n";
+"csv.report_time" = "# 报告时间: %@\n";
+"csv.period" = "# 统计周期: 过去 %d 小时\n";
+"csv.total_drain" = "# 总消耗: %d mAh (%d%%)\n";
+"app.running" = "运行中";
+"app.closed" = "已关闭";
+"json.error" = "Failed to generate JSON";
+
+// Welcome Guide
+"welcome.title" = "欢迎使用「静•电」";
+"welcome.message" = "本应用为菜单栏常驻程序，默认会自动在后台持续运行，无需担心被系统暂停。\n\n为了获得最佳体验，建议开启：\n• 开机自启动 - 让应用在登录时自动启动\n\n点击「开启自启动」即可一键设置。";
+"welcome.enable_launch" = "开启自启动";
+"welcome.later" = "稍后再说";
+
+// Language Menu
+"menu.language" = "语言 / Language";
+"menu.language.system" = "跟随系统";
+"menu.language.chinese" = "中文";
+"menu.language.english" = "English";

@@ -1,0 +1,16 @@
+.build/
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+*.DS_Store
+
+# 构建产物
+dist/
+*.dmg
+*.app/
+BatteryMonitor
+# AppIcon.iconset/
+
+# 临时图标资源（如果保留 generate_icon.py 则不需要原始图）
+icon_1024.png

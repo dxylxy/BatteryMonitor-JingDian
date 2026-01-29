@@ -1,0 +1,117 @@
+/* 
+  Localizable.strings
+  BatteryMonitor
+
+  Created by Agent.
+*/
+
+// Status Bar & Menu Placeholders
+"status.battery_info.placeholder" = "Battery: -- / -- mAh (--%) ";
+"status.power_info.placeholder" = "Power: -- W · -- mA";
+"status.time.remaining.placeholder" = "Time Remaining: --";
+"status.temp_voltage.placeholder" = "Temp: --°C · Volt: -- V";
+"status.consumed.placeholder" = "Consumed: -- mAh (--%) · --:--:--";
+"status.average.placeholder" = "Avg: -- mAh/h";
+"status.health.info.placeholder" = "Health: --% · Cycles: -- · Design: -- mAh";
+
+// Menu Items
+"menu.app_energy_history" = "App Energy History";
+"menu.past_hours" = "Past %d Hours";
+"menu.current_active_apps" = "Active Apps (Live)";
+"menu.show_more" = "Show More...";
+"menu.show_more_count" = "Show More (%d items)...";
+"menu.collapse" = "Collapse";
+"menu.reset_stats" = "Reset Statistics";
+"menu.about" = "About Battery Monitor";
+"menu.help" = "Help / GitHub";
+"menu.donate" = "Support / Donate";
+"menu.export_report" = "Export Energy Report";
+"menu.export_csv" = "Export as CSV";
+"menu.export_json" = "Export as JSON";
+"menu.launch_at_login" = "Launch at Login";
+"menu.quit" = "Quit Battery Monitor";
+"menu.force_quit" = "Force Quit %@";
+"menu.force_quit_short" = "Force Quit";
+"menu.no_data" = "No Data (Run for a while)";
+"menu.total_drain" = "Total Drain: %d mAh (%d%%)";
+"menu.show_more_apps" = "▼ Show More...";
+"menu.today_app_ranking" = "Today's App Energy Usage";
+"menu.more_history" = "More History...";
+
+// Battery Chart
+"chart.no_data" = "No data yet, please wait...";
+"time.two_days_ago" = "2 days ago";
+"time.yesterday" = "Yesterday";
+"time.now" = "Now";
+"chart.cpu_usage_48h" = "48h CPU Usage";
+
+// Status Updates
+"status.charging" = "Charging: %.2f W · +%d mA %@";
+"status.charged" = "Charged: %.2f W · %d mA %@";
+"status.discharging" = "Discharging: %.2f W · %d mA %@";
+
+"time.charge_full_hm" = "Full in: %d hr %d min";
+"time.charge_full_m" = "Full in: %d min";
+"time.battery_full" = "Battery Full";
+"time.calculating_charge" = "Calculating time...";
+"time.full_ac" = "Charged · AC Power";
+"time.remaining_hm" = "Remaining: %d hr %d min";
+"time.remaining_m" = "Remaining: %d min";
+"time.remaining_approx_hm" = "Remaining: ~%d hr %d min";
+"time.remaining_approx_m" = "Remaining: ~%d min";
+"time.calculating_remaining" = "Calculating remaining...";
+
+"status.temp_voltage" = "Temp: %.1f°C · Volt: %.2f V";
+"status.consumed" = "Consumed: %d mAh (%d%%) · %@";
+"status.average" = "Avg: %d mAh/h";
+"status.health" = "Health: %d%% · Cycles: %d · Design: %d mAh";
+"status.battery_info" = "Battery: %d / %d mAh (%d%%)";
+
+// Alerts
+"alert.about.title" = "Battery Monitor";
+"alert.about.message" = "Version 1.0.0\n\nA simple macOS battery monitor tool.\nReal-time display of battery status and app energy consumption.";
+"alert.ok" = "OK";
+"alert.github" = "Go to GitHub";
+"alert.cancel" = "Cancel";
+
+"alert.donate.title" = "Support";
+"alert.donate.message" = "If you find this app helpful,\nplease consider supporting the developer on GitHub.\n\nThank you for your support! ❤️";
+
+"alert.export.success" = "Export Successful";
+"alert.export.saved" = "Report saved to:\n%@";
+"alert.show_in_finder" = "Show in Finder";
+
+"alert.export.fail" = "Export Failed";
+"alert.export.error" = "Could not save file: %@";
+
+"alert.app_not_found.title" = "App Not Found";
+"alert.app_not_found.message" = "Cannot find \"%@\" in Finder.\nThis may be a system process or background service.";
+
+"alert.force_quit_fail.title" = "Cannot Force Quit";
+"alert.force_quit_fail.message" = "Cannot find the process for \"%@\". It may have already closed.";
+
+"save_panel.csv.title" = "Export Energy Report (CSV)";
+"save_panel.json.title" = "Export Energy Report (JSON)";
+"save_panel.csv.name" = "Energy_Report_%dhours.csv";
+"save_panel.json.name" = "Energy_Report_%dhours.json";
+
+// CSV/JSON Export
+"csv.header" = "App Name,CPU(%),Est. Drain(mAh),Drain(%),Status\n";
+"csv.report_time" = "# Report Time: %@\n";
+"csv.period" = "# Period: Past %d Hours\n";
+"csv.total_drain" = "# Total Drain: %d mAh (%d%%)\n";
+"app.running" = "Running";
+"app.closed" = "Closed";
+"json.error" = "Failed to generate JSON";
+
+// Welcome Guide
+"welcome.title" = "Welcome to Battery Monitor";
+"welcome.message" = "This app runs in the menu bar and stays active in the background.\n\nFor the best experience, we recommend enabling:\n• Launch at Login - Automatically start the app when you log in.\n\nClick 'Enable Launch at Login' to set it up automatically.";
+"welcome.enable_launch" = "Enable Launch at Login";
+"welcome.later" = "Maybe Later";
+
+// Language Menu
+"menu.language" = "Language";
+"menu.language.system" = "Follow System";
+"menu.language.chinese" = "中文";
+"menu.language.english" = "English";
