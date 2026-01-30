@@ -30,8 +30,10 @@ Whether for daily office work or mobile development, it helps you grasp your Mac
 - **36-Hour History**: Automatically records app energy consumption data for the past **36 hours**.
 - **Energy Contribution %**: Instead of raw CPU usage, we calculate the **Energy Contribution Percentage (0-100%)**. This accurately reflects how much a specific app contributes to total system power draw at any given moment.
 - **Smart Gap Detection**: Automatically detects sleep or idle periods, represented by distinct indicators in the charts.
-![Showcase](应用展示/2026-01-30_03-30-34.png)
-![Showcase](应用展示/2026-01-30_13-15-57.png)
+<p align="center">
+  <img src="应用展示/2026-01-30_03-30-34.png" width="45%" />
+  <img src="应用展示/2026-01-30_13-15-57.png" width="45%" />
+</p>
 
 ### 3. Persistent Data Tracking
 - **Auto-Save**: Historical energy data is automatically restored after app exit or restart; records are never lost.
