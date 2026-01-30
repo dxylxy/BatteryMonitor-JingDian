@@ -2,7 +2,6 @@
 
 > Minimalist aesthetics, silent guardian. An **ultra-low power battery & app monitoring tool** for macOS.
 
-
 [![License](https://img.shields.io/badge/license-MIT-black.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-black.svg)]()
 [![Swift](https://img.shields.io/badge/swift-5.9-black.svg)]()
@@ -30,6 +29,7 @@ Whether for daily office work or mobile development, it helps you grasp your Mac
 - **36-Hour History**: Automatically records app energy consumption data for the past **36 hours**.
 - **Energy Contribution %**: Instead of raw CPU usage, we calculate the **Energy Contribution Percentage (0-100%)**. This accurately reflects how much a specific app contributes to total system power draw at any given moment.
 - **Smart Gap Detection**: Automatically detects sleep or idle periods, represented by distinct indicators in the charts.
+
 <p align="center">
   <img src="应用展示/2026-01-30_03-30-34.png" width="45%" />
   <img src="应用展示/2026-01-30_13-15-57.png" width="45%" />
@@ -101,7 +101,6 @@ If you find this app helpful, please consider supporting its development!
   <img src="sponsers/WeChat.JPG" alt="WeChat Pay" width="200" style="margin-right: 20px;" />
   <img src="sponsers/Alipay.JPG" alt="AliPay" width="200" />
 </div>
-
 
 ## 🤝 Contribution
 
