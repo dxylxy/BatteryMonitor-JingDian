@@ -28,9 +28,9 @@ class AppCPUChartWindow: NSWindow {
     
     func showForApp(name: String, near point: NSPoint) {
         appName = name
-        title = "\(name) - " + LocalizedString("chart.cpu_usage_48h", comment: "")
+        title = "\(name) - " + LocalizedString("chart.energy_contribution_36h", comment: "")
         
-        let history = EnergyHistoryManager.shared.getAppCPUHistory(appName: name, hours: 48)
+        let history = EnergyHistoryManager.shared.getAppEnergyContributionHistory(appName: name, hours: 36)
         chartView.updateData(history, appName: name)
         
         // 定位窗口
@@ -57,14 +57,14 @@ class AppCPUChartWindow: NSWindow {
     }
 }
 
-/// 应用 CPU 曲线视图（支持悬停交互）
+/// 应用能耗贡献曲线视图（支持悬停交互）
 class AppCPUChartView: NSView {
-    private var chartData: [(time: Date, cpuPercent: Double)] = []
+    private var chartData: [(time: Date, contributionPercent: Double)] = []
     private var appName: String = ""
     private var trackingArea: NSTrackingArea?
     private var mouseX: CGFloat? = nil
     
-    func updateData(_ data: [(time: Date, cpuPercent: Double)], appName: String) {
+    func updateData(_ data: [(time: Date, contributionPercent: Double)], appName: String) {
         self.chartData = data
         self.appName = appName
         needsDisplay = true
@@ -171,59 +171,126 @@ class AppCPUChartView: NSView {
         }
         
         let now = Date()
-        let hoursAgo48 = now.addingTimeInterval(-172800)
-        let timeRange = now.timeIntervalSince(hoursAgo48)
+        let hoursAgo36 = now.addingTimeInterval(-129600)  // 36 hours
+        let timeRange = now.timeIntervalSince(hoursAgo36)
         
-        // 找到最大 CPU 值用于缩放
-        let maxCPU = max(chartData.map { $0.cpuPercent }.max() ?? 10, 5)
+        // 能耗贡献百分比已经是 0-100%
+        let maxPercent: Double = 100
         
-        // 绘制填充区域
-        let fillPath = NSBezierPath()
-        var firstPoint = true
-        var firstX: CGFloat = 0
+        // 时间间隔阈值：超过 10 分钟认为是休眠/无数据期间
+        let gapThreshold: TimeInterval = 600
         
-        for point in chartData {
-            let x = rect.minX + CGFloat(point.time.timeIntervalSince(hoursAgo48) / timeRange) * rect.width
-            let y = rect.minY + rect.height * CGFloat(point.cpuPercent / maxCPU)
-            
-            if firstPoint {
-                fillPath.move(to: NSPoint(x: x, y: rect.minY))
-                fillPath.line(to: NSPoint(x: x, y: y))
-                firstX = x
-                firstPoint = false
+        // 将数据按时间间隔分成多个连续的片段
+        var segments: [[(time: Date, contributionPercent: Double)]] = []
+        var currentSegment: [(time: Date, contributionPercent: Double)] = []
+        var gapRanges: [(start: Date, end: Date)] = []  // 记录无数据区间
+        
+        for (i, point) in chartData.enumerated() {
+            if i == 0 {
+                currentSegment.append(point)
             } else {
-                fillPath.line(to: NSPoint(x: x, y: y))
+                let prevPoint = chartData[i - 1]
+                let timeDiff = point.time.timeIntervalSince(prevPoint.time)
+                
+                if timeDiff > gapThreshold {
+                    // 时间间隔过大，保存当前片段并开始新片段
+                    if !currentSegment.isEmpty {
+                        segments.append(currentSegment)
+                    }
+                    // 记录无数据区间
+                    gapRanges.append((start: prevPoint.time, end: point.time))
+                    currentSegment = [point]
+                } else {
+                    currentSegment.append(point)
+                }
             }
         }
-        
-        if let lastPoint = chartData.last {
-            let lastX = rect.minX + CGFloat(lastPoint.time.timeIntervalSince(hoursAgo48) / timeRange) * rect.width
-            fillPath.line(to: NSPoint(x: lastX, y: rect.minY))
+        // 保存最后一个片段
+        if !currentSegment.isEmpty {
+            segments.append(currentSegment)
         }
-        fillPath.close()
         
-        NSColor.systemOrange.withAlphaComponent(0.3).setFill()
-        fillPath.fill()
-        
-        // 绘制曲线
-        let curvePath = NSBezierPath()
-        curvePath.lineWidth = 2
-        firstPoint = true
-        
-        for point in chartData {
-            let x = rect.minX + CGFloat(point.time.timeIntervalSince(hoursAgo48) / timeRange) * rect.width
-            let y = rect.minY + rect.height * CGFloat(point.cpuPercent / maxCPU)
+        // 绘制无数据区间的灰色背景
+        for gap in gapRanges {
+            let startX = rect.minX + CGFloat(gap.start.timeIntervalSince(hoursAgo36) / timeRange) * rect.width
+            let endX = rect.minX + CGFloat(gap.end.timeIntervalSince(hoursAgo36) / timeRange) * rect.width
             
-            if firstPoint {
-                curvePath.move(to: NSPoint(x: x, y: y))
-                firstPoint = false
-            } else {
-                curvePath.line(to: NSPoint(x: x, y: y))
-            }
+            let gapRect = NSRect(x: startX, y: rect.minY, width: endX - startX, height: rect.height)
+            NSColor.gray.withAlphaComponent(0.1).setFill()
+            NSBezierPath(rect: gapRect).fill()
+            
+            // 在无数据区间中间绘制虚线
+            context.saveGState()
+            context.setStrokeColor(NSColor.gray.withAlphaComponent(0.4).cgColor)
+            context.setLineWidth(1)
+            context.setLineDash(phase: 0, lengths: [4, 4])
+            let midX = (startX + endX) / 2
+            context.move(to: CGPoint(x: midX, y: rect.minY))
+            context.addLine(to: CGPoint(x: midX, y: rect.maxY))
+            context.strokePath()
+            context.restoreGState()
         }
         
-        NSColor.systemOrange.setStroke()
-        curvePath.stroke()
+        // 为每个片段分别绘制填充区域和曲线
+        for segment in segments {
+            guard segment.count > 1 else {
+                // 单个点时绘制一个小圆点
+                if let singlePoint = segment.first {
+                    let x = rect.minX + CGFloat(singlePoint.time.timeIntervalSince(hoursAgo36) / timeRange) * rect.width
+                    let y = rect.minY + rect.height * CGFloat(singlePoint.contributionPercent / maxPercent)
+                    let dotRect = NSRect(x: x - 3, y: y - 3, width: 6, height: 6)
+                    NSColor.systemOrange.setFill()
+                    NSBezierPath(ovalIn: dotRect).fill()
+                }
+                continue
+            }
+            
+            // 绘制填充区域
+            let fillPath = NSBezierPath()
+            var firstPoint = true
+            
+            for point in segment {
+                let x = rect.minX + CGFloat(point.time.timeIntervalSince(hoursAgo36) / timeRange) * rect.width
+                let y = rect.minY + rect.height * CGFloat(point.contributionPercent / maxPercent)
+                
+                if firstPoint {
+                    fillPath.move(to: NSPoint(x: x, y: rect.minY))
+                    fillPath.line(to: NSPoint(x: x, y: y))
+                    firstPoint = false
+                } else {
+                    fillPath.line(to: NSPoint(x: x, y: y))
+                }
+            }
+            
+            if let lastPoint = segment.last {
+                let lastX = rect.minX + CGFloat(lastPoint.time.timeIntervalSince(hoursAgo36) / timeRange) * rect.width
+                fillPath.line(to: NSPoint(x: lastX, y: rect.minY))
+            }
+            fillPath.close()
+            
+            NSColor.systemOrange.withAlphaComponent(0.3).setFill()
+            fillPath.fill()
+            
+            // 绘制曲线
+            let curvePath = NSBezierPath()
+            curvePath.lineWidth = 2
+            firstPoint = true
+            
+            for point in segment {
+                let x = rect.minX + CGFloat(point.time.timeIntervalSince(hoursAgo36) / timeRange) * rect.width
+                let y = rect.minY + rect.height * CGFloat(point.contributionPercent / maxPercent)
+                
+                if firstPoint {
+                    curvePath.move(to: NSPoint(x: x, y: y))
+                    firstPoint = false
+                } else {
+                    curvePath.line(to: NSPoint(x: x, y: y))
+                }
+            }
+            
+            NSColor.systemOrange.setStroke()
+            curvePath.stroke()
+        }
     }
     
     private func drawAxisLabels(in rect: NSRect) {
@@ -232,14 +299,13 @@ class AppCPUChartView: NSView {
             .foregroundColor: NSColor.secondaryLabelColor
         ]
         
-        // 找到最大 CPU 值
-        let maxCPU = max(chartData.map { $0.cpuPercent }.max() ?? 10, 5)
         
-        // Y 轴标签
+        // Y 轴标签 - 显示归一化的 0-100% 相对活跃度
+        // 这样用户更容易理解（最高点始终是 100%）
         for i in 0...4 {
             let y = rect.minY + rect.height * CGFloat(i) / 4 - 5
-            let value = maxCPU * Double(i) / 4
-            let text = String(format: "%.0f%%", value)
+            let value = i * 25  // 0%, 25%, 50%, 75%, 100%
+            let text = "\(value)%"
             text.draw(at: NSPoint(x: 5, y: y), withAttributes: attrs)
         }
         
@@ -248,9 +314,10 @@ class AppCPUChartView: NSView {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         
+        // 36小时内：显示36小时前、18小时前、现在
         let timeOffsets: [(offset: TimeInterval, label: String)] = [
-            (-172800, LocalizedString("time.two_days_ago", comment: "")),
-            (-86400, LocalizedString("time.yesterday", comment: "")),
+            (-129600, LocalizedString("time.36h_ago", comment: "")),
+            (-64800, LocalizedString("time.18h_ago", comment: "")),
             (0, LocalizedString("time.now", comment: ""))
         ]
         
@@ -270,16 +337,16 @@ class AppCPUChartView: NSView {
         guard chartData.count > 1 else { return }
         
         let now = Date()
-        let hoursAgo48 = now.addingTimeInterval(-172800)
-        let timeRange = now.timeIntervalSince(hoursAgo48)
-        let maxCPU = max(chartData.map { $0.cpuPercent }.max() ?? 10, 5)
+        let hoursAgo36 = now.addingTimeInterval(-129600)  // 36 hours
+        let timeRange = now.timeIntervalSince(hoursAgo36)
+        let maxPercent: Double = 100  // 能耗贡献已是 0-100%
         
         // 计算鼠标位置对应的时间
         let ratio = (x - rect.minX) / rect.width
-        let hoverTime = hoursAgo48.addingTimeInterval(timeRange * Double(ratio))
+        let hoverTime = hoursAgo36.addingTimeInterval(timeRange * Double(ratio))
         
         // 查找最近的数据点
-        var closestPoint: (time: Date, cpuPercent: Double)? = nil
+        var closestPoint: (time: Date, contributionPercent: Double)? = nil
         var minDistance: TimeInterval = .infinity
         
         for point in chartData {
@@ -305,7 +372,7 @@ class AppCPUChartView: NSView {
         context.setLineDash(phase: 0, lengths: [])
         
         // 计算曲线上的 Y 坐标
-        let curveY = rect.minY + rect.height * CGFloat(point.cpuPercent / maxCPU)
+        let curveY = rect.minY + rect.height * CGFloat(point.contributionPercent / maxPercent)
         
         // 绘制交叉点圆圈
         let circleRect = NSRect(x: x - 4, y: curveY - 4, width: 8, height: 8)
@@ -319,7 +386,8 @@ class AppCPUChartView: NSView {
         let formatter = DateFormatter()
         formatter.dateFormat = "MM/dd HH:mm"
         let timeStr = formatter.string(from: point.time)
-        let valueStr = String(format: "%.1f%%", point.cpuPercent)
+        // 直接显示能耗贡献百分比
+        let valueStr = String(format: "%.0f%%", point.contributionPercent)
         let infoText = "\(timeStr)\n\(valueStr)"
         
         let attrs: [NSAttributedString.Key: Any] = [
@@ -474,43 +542,48 @@ class BatteryChartView: NSView {
         let hoursAgo48 = now.addingTimeInterval(-172800)
         let timeRange = now.timeIntervalSince(hoursAgo48)
         
-        // 先绘制充电区域（绿色填充）
+        // 计算所有点的坐标
+        var points: [(point: NSPoint, isCharging: Bool)] = []
+        for dataPoint in chartData {
+            let x = rect.minX + CGFloat(dataPoint.time.timeIntervalSince(hoursAgo48) / timeRange) * rect.width
+            let y = rect.minY + rect.height * CGFloat(dataPoint.percentage) / 100
+            points.append((NSPoint(x: x, y: y), dataPoint.isCharging))
+        }
+        
+        guard points.count >= 2 else { return }
+        
+        // 绘制充电区域（绿色填充）
         var chargingRanges: [(start: Int, end: Int)] = []
         var inCharging = false
         var startIdx = 0
         
-        for (i, point) in chartData.enumerated() {
-            if point.isCharging && !inCharging {
+        for (i, p) in points.enumerated() {
+            if p.isCharging && !inCharging {
                 inCharging = true
                 startIdx = i
-            } else if !point.isCharging && inCharging {
+            } else if !p.isCharging && inCharging {
                 inCharging = false
                 chargingRanges.append((startIdx, i))
             }
         }
         if inCharging {
-            chargingRanges.append((startIdx, chartData.count - 1))
+            chargingRanges.append((startIdx, points.count - 1))
         }
         
         // 绘制充电区域
         for range in chargingRanges {
             if range.end > range.start {
                 let chargingPath = NSBezierPath()
-                let startPoint = chartData[range.start]
-                let startX = rect.minX + CGFloat(startPoint.time.timeIntervalSince(hoursAgo48) / timeRange) * rect.width
+                let startPoint = points[range.start].point
                 
-                chargingPath.move(to: NSPoint(x: startX, y: rect.minY))
+                chargingPath.move(to: NSPoint(x: startPoint.x, y: rect.minY))
                 
                 for i in range.start...range.end {
-                    let point = chartData[i]
-                    let x = rect.minX + CGFloat(point.time.timeIntervalSince(hoursAgo48) / timeRange) * rect.width
-                    let y = rect.minY + rect.height * CGFloat(point.percentage) / 100
-                    chargingPath.line(to: NSPoint(x: x, y: y))
+                    chargingPath.line(to: points[i].point)
                 }
                 
-                let endPoint = chartData[range.end]
-                let endX = rect.minX + CGFloat(endPoint.time.timeIntervalSince(hoursAgo48) / timeRange) * rect.width
-                chargingPath.line(to: NSPoint(x: endX, y: rect.minY))
+                let endPoint = points[range.end].point
+                chargingPath.line(to: NSPoint(x: endPoint.x, y: rect.minY))
                 chargingPath.close()
                 
                 NSColor.systemGreen.withAlphaComponent(0.3).setFill()
@@ -518,20 +591,38 @@ class BatteryChartView: NSView {
             }
         }
         
-        // 绘制电量曲线
+        // 绘制电量曲线（平滑贝塞尔曲线）- 始终连接所有点
         let curvePath = NSBezierPath()
         curvePath.lineWidth = 2
         
-        var firstPoint = true
-        for point in chartData {
-            let x = rect.minX + CGFloat(point.time.timeIntervalSince(hoursAgo48) / timeRange) * rect.width
-            let y = rect.minY + rect.height * CGFloat(point.percentage) / 100
-            
-            if firstPoint {
-                curvePath.move(to: NSPoint(x: x, y: y))
-                firstPoint = false
-            } else {
-                curvePath.line(to: NSPoint(x: x, y: y))
+        let allPoints = points.map { $0.point }
+        
+        curvePath.move(to: allPoints[0])
+        
+        if allPoints.count == 2 {
+            // 只有两个点时，直接连线
+            curvePath.line(to: allPoints[1])
+        } else {
+            // 使用 Catmull-Rom 样条转换为贝塞尔曲线
+            for i in 0..<(allPoints.count - 1) {
+                let p0 = i > 0 ? allPoints[i - 1] : allPoints[0]
+                let p1 = allPoints[i]
+                let p2 = allPoints[i + 1]
+                let p3 = i + 2 < allPoints.count ? allPoints[i + 2] : allPoints[allPoints.count - 1]
+                
+                // 计算控制点（Catmull-Rom 到 Bezier 转换）
+                let tension: CGFloat = 0.3  // 张力系数，越小越平滑
+                
+                let cp1 = NSPoint(
+                    x: p1.x + (p2.x - p0.x) * tension,
+                    y: p1.y + (p2.y - p0.y) * tension
+                )
+                let cp2 = NSPoint(
+                    x: p2.x - (p3.x - p1.x) * tension,
+                    y: p2.y - (p3.y - p1.y) * tension
+                )
+                
+                curvePath.curve(to: p2, controlPoint1: cp1, controlPoint2: cp2)
             }
         }
         
@@ -1690,11 +1781,11 @@ class StatusBarController: NSObject, NSMenuDelegate {
                 view.isRunning = app.isRunning
                 menuItem.isHidden = false
                 
-                // 更新子菜单中的 CPU 曲线图
+                // 更新子菜单中的能耗贡献曲线图
                 if let submenu = menuItem.submenu,
                    let chartItem = submenu.items.first,
                    let chartView = chartItem.view as? AppCPUChartView {
-                    let history = EnergyHistoryManager.shared.getAppCPUHistory(appName: app.name, hours: 48)
+                    let history = EnergyHistoryManager.shared.getAppEnergyContributionHistory(appName: app.name, hours: 36)
                     chartView.updateData(history, appName: app.name)
                 }
             } else {

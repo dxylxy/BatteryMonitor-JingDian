@@ -2,6 +2,7 @@
 
 > Minimalist aesthetics, silent guardian. A modern macOS menu bar battery monitor application.
 
+
 [![License](https://img.shields.io/badge/license-MIT-black.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-black.svg)]()
 [![Swift](https://img.shields.io/badge/swift-5.9-black.svg)]()
@@ -20,21 +21,25 @@ Whether for daily office work or mobile development, it helps you grasp your Mac
 
 ### 1. Deep Battery Monitoring
 - **Real-time Data**: Accurately displays current capacity, charge/discharge power (W), amperage (mA), voltage (V), and battery temperature.
+- **Visualized Curve**: View the **last 48 hours** of battery trend with a **smooth Bezier curve**, making power drops and charging phases (highlighted in green) instantly recognizable.
 - **Health Management**: Visually presents battery health, cycle count, and design capacity comparison.
 - **Time Estimates**: Real-time calculation of remaining usage time or time to full charge based on current power consumption.
 
-### 2. App Energy Analysis
+### 2. Precise App Energy Analysis
 - **Live Ranking**: Instantly refreshes the list of apps with the highest CPU usage, helping you spot high-energy processes immediately.
-- **History Tracking**: Automatically records app energy consumption data for the past 48 hours.
-- **Energy Breakdown**: Visualizes the power consumption share (%) and estimated drain (mAh) of each app over selected time periods.
+- **36-Hour History**: Automatically records app energy consumption data for the past **36 hours**.
+- **Energy Contribution %**: Instead of raw CPU usage, we calculate the **Energy Contribution Percentage (0-100%)**. This accurately reflects how much a specific app contributes to total system power draw at any given moment.
+- **Smart Gap Detection**: Automatically detects sleep or idle periods, represented by distinct indicators in the charts.
+![Showcase](应用展示/2026-01-30_03-30-34.png)
+![Showcase](应用展示/2026-01-30_13-15-57.png)
 
 ### 3. Persistent Data Tracking
 - **Auto-Save**: Historical energy data is automatically restored after app exit or restart; records are never lost.
 - **Periodic Backup**: Automatically backs up data every 5 minutes in the background to prevent accidental loss.
 
 ### 4. Extreme Performance & Experience
-- **Silent Operation**: Average CPU usage < 0.1% and memory usage < 20MB when running in the background.
-- **Smart Refresh**:Refreshes every second when the menu is open, and automatically enters low-power mode (60s/interval) when closed.
+- **Silent Operation**: Average CPU usage **< 0.1%** and memory usage **< 20MB** when running in the background.
+- **Smart Refresh**: Refreshes every second when the menu is open, and automatically enters ultra-low power mode (60s/interval) when closed.
 - **Multi-language Support**: Native support for Simplified Chinese and English, with options to follow system settings or switch manually.
 
 ## 🛠 Technical Architecture
@@ -75,7 +80,7 @@ open dist/
 1. **Launch**: The app lives in the top menu bar, displaying a battery icon and percentage.
 2. **View Details**: Click the menu bar icon to expand the detailed information panel.
 3. **Switch Views**:
-   - **App Energy History**: View energy statistics for the past 1/4/12/24/48 hours.
+   - **App Energy History**: View per-app energy contribution curves for the past 36 hours.
    - **Active Apps**: View apps currently running and consuming CPU.
 4. **More Settings**:
    - **Right-click** the menu bar icon to access the settings menu.
@@ -85,6 +90,16 @@ open dist/
 
 - **System Process Permissions**: Detailed energy data for some system-level processes (like `kernel_task`) may be restricted due to macOS sandboxing mechanisms.
 - **Refresh Rate**: To ensure low power consumption, the background refresh rate is limited to once per minute, meaning historical data granularity is minute-level.
+
+## ☕️ Support
+
+If you find this app helpful, please consider supporting its development!
+
+<a href="https://github.com/sponsors/dxylxy">
+  <img src="https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?style=for-the-badge&logo=github" alt="Sponsor on GitHub" />
+</a>
+
+*(You can also add WeChat Pay / AliPay QR codes here if applicable)*
 
 ## 🤝 Contribution
 

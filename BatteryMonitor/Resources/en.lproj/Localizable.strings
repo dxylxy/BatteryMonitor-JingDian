@@ -43,7 +43,11 @@
 "time.two_days_ago" = "2 days ago";
 "time.yesterday" = "Yesterday";
 "time.now" = "Now";
+"time.36h_ago" = "36h ago";
+"time.18h_ago" = "18h ago";
 "chart.cpu_usage_48h" = "48h CPU Usage";
+"chart.cpu_usage_36h" = "36h CPU Usage";
+"chart.energy_contribution_36h" = "36h Energy Contribution";
 
 // Status Updates
 "status.charging" = "Charging: %.2f W · +%d mA %@";

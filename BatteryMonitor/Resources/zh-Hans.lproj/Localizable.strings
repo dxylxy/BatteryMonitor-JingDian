@@ -43,7 +43,11 @@
 "time.two_days_ago" = "前天";
 "time.yesterday" = "昨天";
 "time.now" = "现在";
+"time.36h_ago" = "36小时前";
+"time.18h_ago" = "18小时前";
 "chart.cpu_usage_48h" = "48小时 CPU 占用";
+"chart.cpu_usage_36h" = "36小时 CPU 占用";
+"chart.energy_contribution_36h" = "36小时能耗贡献";
 
 // Status Updates
 "status.charging" = "充电: %.2f W · +%d mA %@";
