@@ -98,12 +98,9 @@ open dist/
 如果你觉得这个小工具对你有帮助，欢迎请我喝杯咖啡！你的支持是我持续维护的动力。
 
 <div align="center">
-  <img src="sponsers/WeChat.JPG" alt="WeChat Pay" width="200" style="margin-right: 20px;" />
-  <img src="sponsers/Alipay.JPG" alt="AliPay" width="200" />
+  <img src="https://github.com/user-attachments/assets/c5359452-3f0d-43ca-81fa-0fd62cb836b2" alt="WeChat Pay" width="200" style="margin-right: 20px;" />
+  <img src="https://github.com/user-attachments/assets/0d375b1b-57cd-4940-89b8-33b153245657" alt="AliPay" width="200" />
 </div>
-![WeChat](https://github.com/user-attachments/assets/c5359452-3f0d-43ca-81fa-0fd62cb836b2)
-![Alipay](https://github.com/user-attachments/assets/0d375b1b-57cd-4940-89b8-33b153245657)
-
 
 ## 🤝 贡献指南
 
