@@ -32,6 +32,7 @@
 - **智能休眠检测**：自动检测系统休眠或关机时段，在图表中以灰色断点区域标识。
 ![应用展示](应用展示/2026-01-30_03-30-34.png)
 ![应用展示](应用展示/2026-01-30_13-15-57.png)
+
 ### 3. 持久化数据追踪
 - **自动保存**：应用退出或重启后，历史能耗数据自动恢复，记录永不丢失。
 - **定时备份**：后台每 5 分钟自动备份数据，防止意外丢失。
@@ -94,11 +95,11 @@ open dist/
 
 如果你觉得这个小工具对你有帮助，欢迎请我喝杯咖啡！你的支持是我持续维护的动力。
 
-<a href="https://github.com/sponsors/dxylxy">
-  <img src="https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?style=for-the-badge&logo=github" alt="Sponsor on GitHub" />
-</a>
+<div align="center">
+  <img src="sponsers/WeChat.JPG" alt="WeChat Pay" width="200" style="margin-right: 20px;" />
+  <img src="sponsers/Alipay.JPG" alt="AliPay" width="200" />
+</div>
 
-*(你也可以在这里添加微信/支付宝的收款码图片)*
 
 ## 🤝 贡献指南
 

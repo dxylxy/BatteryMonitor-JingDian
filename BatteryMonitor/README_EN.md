@@ -95,11 +95,11 @@ open dist/
 
 If you find this app helpful, please consider supporting its development!
 
-<a href="https://github.com/sponsors/dxylxy">
-  <img src="https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?style=for-the-badge&logo=github" alt="Sponsor on GitHub" />
-</a>
+<div align="center">
+  <img src="sponsers/WeChat.JPG" alt="WeChat Pay" width="200" style="margin-right: 20px;" />
+  <img src="sponsers/Alipay.JPG" alt="AliPay" width="200" />
+</div>
 
-*(You can also add WeChat Pay / AliPay QR codes here if applicable)*
 
 ## 🤝 Contribution
 
