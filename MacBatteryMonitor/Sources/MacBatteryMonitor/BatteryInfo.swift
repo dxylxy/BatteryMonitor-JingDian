@@ -508,7 +508,6 @@ class EnergyHistoryManager {
             let filteredRecords = records.filter { $0.timestamp >= todayStart }
             let filteredBattery = batteryHistory.filter { $0.time >= todayStart }
             
-            // 计算今日电量消耗
             var totalDrainPercent = 0
             if let first = filteredBattery.first, let last = filteredBattery.last {
                 totalDrainPercent = max(0, first.percentage - last.percentage)
@@ -518,6 +517,9 @@ class EnergyHistoryManager {
             var totalCPU: Double = 0
             
             for record in filteredRecords {
+                // 过滤历史脏数据
+                if shouldIgnoreApp(record.name) { continue }
+                
                 appCPU[record.name, default: 0] += record.cpuPercent
                 totalCPU += record.cpuPercent
             }
@@ -527,7 +529,9 @@ class EnergyHistoryManager {
                 let percentEstimate = Double(totalDrainPercent) * cpuShare / 100
                 let running = runningProcesses.contains(name)
                 return (name, percentEstimate, running)
-            }.sorted { $0.percentEstimate > $1.percentEstimate }
+            }
+            .filter { $0.name != "System" } // 再次确认过滤逻辑
+            .sorted { $0.percentEstimate > $1.percentEstimate }
             .prefix(count).map { $0 }
         }
         
@@ -553,6 +557,9 @@ class EnergyHistoryManager {
             var totalCPU: Double = 0
             
             for record in filteredRecords {
+                // 过滤历史脏数据
+                if shouldIgnoreApp(record.name) { continue }
+                
                 appCPU[record.name, default: 0] += record.cpuPercent
                 totalCPU += record.cpuPercent
             }
@@ -581,6 +588,69 @@ class EnergyHistoryManager {
     
 
     
+    /// 系统进程黑名单 (手动维护的已知干扰项)
+    /// 用于清理历史数据中的"脏数据"
+    private let legacyBlacklist: Set<String> = [
+        "kernel_task", "launchd", "WindowServer", "loginwindow", "SystemUIServer",
+        "Finder", "Dock", "Spotlight", "mds", "mds_stores", "mdworker", "mdworker_shared",
+        "cfprefsd", "distnoted", "trustd", "secinitd", "securityd", "coreservicesd",
+        "powerd", "thermald", "syslogd", "logd", "configd", "notifyd", "usernoted",
+        "WindowManager", "ControlCenter", "NotificationCenter", "AXVisualSupportAgent",
+        "coreaudiod", "audioclocksyncd", "corespeechd", "audio", "AppleSpell",
+        "backupd", "cloudd", "bird", "netbiosd", "CalendarAgent", "AddressBookSource",
+        "VTEncoderXPCService", "com.apple.WebKit.GPU", "com.apple.WebKit.WebContent",
+        "com.apple.WebKit.Networking", "com.apple.DriverKit-AppleUserHIDDrivers",
+        "com.apple.Safari.SafeBrowsing", "SafariCloudHistoryPushAgent",
+        "smd", "containermanagerd", "runningboardd", "CommCenter", "UserEventAgent",
+        "sharingd", "rapportd", "IMDPersistenceAgent", "identityservicesd", "imagent",
+        "akd", "amsaccountsd", "amsengagementd", "callservicesd", "deleted",
+        "diagnosticd", "diskarbitrationd", "diskmanagementd", "fileproviderd",
+        "fseventsd", "hidd", "iconservicesagent", "lsd", "mediaanalysisd",
+        "opendirectoryd", "pbs", "sandboxd", "secd", "symptomsd", "sysextd",
+        "syspolicyd", "timed", "trustdFileHelper", "universalaccessd", "usermanagerd",
+        "warmd", "xpcproxy", "duetexpertd", "siriknowledged", "parsecd",
+        "suggestd", "coreduetd", "intelligenceplatformd", "knowledgeconstructiond",
+        "contextstored", "proactiveeventtrackerd", "peopled", "photoanalysisd",
+        "ReportCrash", "storeaccountd", "bookassetd", "fud", "gamecontrollerd",
+        "avconferenced", "WiFiAgent", "WirelessRadioManagerd", "ctkd", "pkd",
+        "AMPDevicesAgent", "AMPLibraryAgent", "AMPArtworkAgent", "AMPDeviceDiscoveryAgent",
+        "CVMServer", "gpuinfo", "MTLCompilerService",
+        // 用户反馈的特定进程
+        "mDNSResponder", "SoftwareUpdateNotificationManager", "IFTranscriptELFIngestor",
+        "InteractiveLegacyProfilesSubscriber", "AccessibilityUIServer", "screencaptureui",
+        "ShareSheetUI", "aslmanager", "recentfiles", "prl_client_app", "Activity Monitor",
+        "Keychain Circle Notification", "SAExtensionOrchestrator", "State Tool", "UURemote",
+        "UniversalControl", "Photos", "recentsfiles", "mdbulkimport", "DisplayControls",
+        "PhotosFileProvider"
+    ]
+    
+    private func shouldIgnoreApp(_ name: String) -> Bool {
+        // 1. 强制黑名单 (清理历史数据)
+        if legacyBlacklist.contains(name) { return true }
+        
+        // 2. 也是系统进程特征
+        if name.hasPrefix("com.apple.") { return true }
+        
+        // 3. 特征后缀清洗
+        let noiseSuffixes = [
+            "d", "d_sim", "agent", "Agent", "service", "Service", "helper", "Helper",
+            "Extension", "extension", "Plugin", "plugin", "XPC", "xpc",
+            "Daemon", "daemon", "Wrapper", "wrapper", "LoginItem", "Runner", "runner",
+            "XPCService", "XPCServices", "Ingestor", "ingestor", "Subscriber", "subscriber",
+            "Manager", "manager", "Server", "server", "UI", "ui", "UIService", "XPCService",
+            "Provider", "provider", "Notification", "notification", "Orchestrator", "orchestrator",
+            "Tool", "tool", "Import", "import", "Export", "export"
+        ]
+        
+        for suffix in noiseSuffixes {
+            if name.hasSuffix(suffix) {
+                return true
+            }
+        }
+        
+        return false
+    }
+
     /// 将 Helper/子进程名称归并到主应用名称
     private func getAppName(from processName: String) -> String {
         var name = processName
@@ -633,26 +703,16 @@ class EnergyHistoryManager {
         
         let runningApps = NSWorkspace.shared.runningApplications
         for app in runningApps {
-            // 1. 本地化名称 (例如 "Music" 或 "音乐")
-            if let name = app.localizedName {
-                allowedApps.insert(name)
-            }
-            // 2. Bundle 完整名称 (例如 "com.apple.Music")
+            if let name = app.localizedName { allowedApps.insert(name) }
             if let id = app.bundleIdentifier {
                 allowedApps.insert(id)
-                // 3. Bundle 最后组件 (例如 "Music")
-                if let last = id.components(separatedBy: ".").last {
-                    allowedApps.insert(last)
-                }
+                if let last = id.components(separatedBy: ".").last { allowedApps.insert(last) }
             }
-            // 4. 文件名 (例如 "Music")
             if let url = app.bundleURL {
                 let name = url.deletingPathExtension().lastPathComponent
                 allowedApps.insert(name)
             }
-            if let url = app.executableURL {
-                allowedApps.insert(url.lastPathComponent)
-            }
+            if let url = app.executableURL { allowedApps.insert(url.lastPathComponent) }
         }
         
         let task = Process()
@@ -681,7 +741,6 @@ class EnergyHistoryManager {
                         let cpu = Double(parts[1]) ?? 0
                         var rawName = parts[2...].joined(separator: " ")
                         
-                        // 提取路径中的最后一个组件
                         if let lastComponent = rawName.components(separatedBy: "/").last {
                             rawName = lastComponent
                         }
@@ -691,15 +750,20 @@ class EnergyHistoryManager {
                             continue
                         }
                         
+                        // 1. 初步过滤：如果直接是黑名单中的，跳过
+                        if shouldIgnoreApp(rawName) { continue }
+                        
                         // 归并到主应用名称
                         let appName = getAppName(from: rawName)
                         
-                        // 严格白名单过滤：只显示运行中的用户应用
+                        // 2. 严格白名单过滤：只显示运行中的用户应用
+                        // 注意：如果白名单启用，应该非常严格。
+                        // 为了防止误杀（比如白名单里没有但确实是用户应用），我们可以结合黑名单逻辑
+                        // 但既然用户想要"Dock应用"，严格白名单是符合预期的。
                         if !allowedApps.contains(appName) {
                             continue
                         }
                         
-                        // 累加同一应用的 CPU 使用率
                         if let existing = appCPU[appName] {
                             appCPU[appName] = (cpu: existing.cpu + cpu, pid: existing.pid)
                         } else {
@@ -710,15 +774,11 @@ class EnergyHistoryManager {
             }
         } catch {}
         
-        // 转换为 AppEnergyRecord 数组
         var apps: [AppEnergyRecord] = []
         for (name, data) in appCPU {
             apps.append(AppEnergyRecord(name: name, pid: data.pid, timestamp: now, cpuPercent: data.cpu))
         }
-        
-        // 按 CPU 使用率排序
         apps.sort { $0.cpuPercent > $1.cpuPercent }
-        
         return apps
     }
     
@@ -727,8 +787,8 @@ class EnergyHistoryManager {
     /// 导出能耗报告为 CSV 格式
     func exportToCSV(hours: Int) -> String {
         var csv = LocalizedString("csv.header", comment: "")
-        
         let apps = getTopApps(hours: hours, count: 50)
+
         let drain = getBatteryDrain(hours: hours)
         
         // 添加汇总信息
