@@ -819,6 +819,9 @@ class EnergyHistoryManager {
         
         // 构建白名单：包含 Dock 和 菜单栏中可见的应用程序
         var allowedApps = Set<String>()
+        // PID 到应用显示名称的映射（用于将游戏引擎进程名映射到真实应用名）
+        var pidToAppName: [Int32: String] = [:]
+        
         // 始终包含自身
         allowedApps.insert("MacBatteryMonitor")
         allowedApps.insert("BatteryMonitor")
@@ -826,6 +829,15 @@ class EnergyHistoryManager {
         
         let runningApps = NSWorkspace.shared.runningApplications
         for app in runningApps {
+            // 获取最佳显示名称
+            let displayName = app.localizedName ?? app.bundleURL?.deletingPathExtension().lastPathComponent ?? "Unknown"
+            
+            // 记录 PID 到应用名称的映射
+            let appPid = Int32(app.processIdentifier)
+            if appPid > 0 {
+                pidToAppName[appPid] = displayName
+            }
+            
             if let name = app.localizedName { allowedApps.insert(name) }
             if let id = app.bundleIdentifier {
                 allowedApps.insert(id)
@@ -875,8 +887,15 @@ class EnergyHistoryManager {
             // 1. 初步过滤：如果直接是黑名单中的，跳过
             if shouldIgnoreApp(rawName) { continue }
             
-            // 归并到主应用名称
-            let appName = getAppName(from: rawName)
+            // 优先使用 PID 映射表中的应用名称（处理游戏引擎进程如 love -> Balatro）
+            var appName: String
+            if let mappedName = pidToAppName[pid] {
+                // 使用 NSWorkspace 中获取的真实应用名称
+                appName = mappedName
+            } else {
+                // 回退到从进程名称归并
+                appName = getAppName(from: rawName)
+            }
             
             // 2. 放宽白名单过滤：
             //    - 如果在白名单中，直接允许
