@@ -6,7 +6,7 @@ class GitHubUpdater {
     
     private let repoOwner = "dxylxy"
     private let repoName = "BatteryMonitor-JingDian"
-    private let currentVersion = "2.4.1"
+    private let currentVersion = "2.4.2"
     
     private init() {}
     
@@ -37,23 +37,49 @@ class GitHubUpdater {
             guard let data = data else { return }
             
             do {
-                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let tagName = json["tag_name"] as? String,
-                   let htmlUrl = json["html_url"] as? String {
-                    
-                    let latestVersion = tagName.replacingOccurrences(of: "v", with: "")
-                    let body = json["body"] as? String ?? ""
-                    
-                    if self.isNewerVersion(latest: latestVersion, current: self.currentVersion) {
-                        DispatchQueue.main.async {
-                            self.showUpdateAlert(version: latestVersion, notes: body, url: htmlUrl)
+                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    // 1. 检查是否包含发布信息
+                    if let tagName = json["tag_name"] as? String,
+                       let htmlUrl = json["html_url"] as? String {
+                        
+                        let latestVersion = tagName.replacingOccurrences(of: "v", with: "")
+                        let body = json["body"] as? String ?? ""
+                        
+                        if self.isNewerVersion(latest: latestVersion, current: self.currentVersion) {
+                            DispatchQueue.main.async {
+                                self.showUpdateAlert(version: latestVersion, notes: body, url: htmlUrl)
+                            }
+                        } else if manual {
+                            DispatchQueue.main.async {
+                                self.showAlert(
+                                    title: LocalizedString("update.no_updates.title", comment: ""),
+                                    message: String(format: LocalizedString("update.no_updates.message", comment: ""), self.currentVersion)
+                                )
+                            }
                         }
-                    } else if manual {
-                        DispatchQueue.main.async {
-                            self.showAlert(
-                                title: LocalizedString("update.no_updates.title", comment: ""),
-                                message: String(format: LocalizedString("update.no_updates.message", comment: ""), self.currentVersion)
-                            )
+                    } 
+                    // 2. 检查是否为 API 错误 (例如 API rate limit exceeded)
+                    else if let message = json["message"] as? String {
+                        print("GitHub API Error: \(message)")
+                        if manual {
+                            DispatchQueue.main.async {
+                                self.showAlert(
+                                    title: LocalizedString("update.check_error.title", comment: ""),
+                                    message: "GitHub API Error: \(message)"
+                                )
+                            }
+                        }
+                    } 
+                    // 3. 未知响应格式
+                    else {
+                        print("Unknown JSON response: \(json)")
+                        if manual {
+                            DispatchQueue.main.async {
+                                self.showAlert(
+                                    title: LocalizedString("update.check_error.title", comment: ""),
+                                    message: LocalizedString("update.check_error.message", comment: "")
+                                )
+                            }
                         }
                     }
                 }
