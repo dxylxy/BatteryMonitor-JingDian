@@ -428,9 +428,17 @@ class EnergyHistoryManager {
         queue.sync {
             let cutoff = Date().addingTimeInterval(-Double(hours * 3600))
             let filtered = batteryHistory.filter { $0.time > cutoff }
-            if let first = filtered.first, let last = filtered.last {
-                result.mah = max(0, first.capacity - last.capacity)
-                result.percent = max(0, first.percentage - last.percentage)
+            if filtered.count > 1 {
+                for i in 1..<filtered.count {
+                    let prev = filtered[i-1]
+                    let curr = filtered[i]
+                    if prev.percentage > curr.percentage {
+                        result.percent += (prev.percentage - curr.percentage)
+                    }
+                    if prev.capacity > curr.capacity {
+                        result.mah += (prev.capacity - curr.capacity)
+                    }
+                }
             }
         }
         return result
@@ -507,11 +515,25 @@ class EnergyHistoryManager {
             
             let filteredRecords = records.filter { $0.timestamp >= todayStart }
             let filteredBattery = batteryHistory.filter { $0.time >= todayStart }
-            
+            // 计算今日电量消耗 (累积下降值)
             var totalDrainPercent = 0
-            if let first = filteredBattery.first, let last = filteredBattery.last {
-                totalDrainPercent = max(0, first.percentage - last.percentage)
+            if filteredBattery.count > 1 {
+                for i in 1..<filteredBattery.count {
+                    let prev = filteredBattery[i-1]
+                    let curr = filteredBattery[i]
+                    // 只有当电量下降时才计入消耗
+                    if prev.percentage > curr.percentage {
+                        totalDrainPercent += (prev.percentage - curr.percentage)
+                    }
+                }
             }
+            // 如果计算结果为0 (例如一直在充电)，为了避免除以零错误，至少设为 1 (占比计算仍会正确因为 cpuShare 为 0)
+            // 但如果 cpuShare > 0，这里 totalDrainPercent 为 0 会导致 percentEstimate 为 0
+            // 这种情况下，我们也许应该回退到 cpuShare 作为排序依据，无论 drain 是多少
+            // 暂时保持逻辑，但如果不耗电，其实也不应该显示耗了多少电。
+            // 只是用户看到 <1% 会困惑。也许 UI 层显示 "活跃度" 会更好?
+            // 不过此时保持真实计算：如果不费电，就是不费电。
+
             
             var appCPU: [String: Double] = [:]
             var totalCPU: Double = 0
@@ -548,9 +570,18 @@ class EnergyHistoryManager {
             
             var totalDrainMah = 0
             var totalDrainPercent = 0
-            if let first = filteredBattery.first, let last = filteredBattery.last {
-                totalDrainMah = max(0, first.capacity - last.capacity)
-                totalDrainPercent = max(0, first.percentage - last.percentage)
+            
+            if filteredBattery.count > 1 {
+                for i in 1..<filteredBattery.count {
+                    let prev = filteredBattery[i-1]
+                    let curr = filteredBattery[i]
+                    if prev.percentage > curr.percentage {
+                        totalDrainPercent += (prev.percentage - curr.percentage)
+                    }
+                    if prev.capacity > curr.capacity {
+                        totalDrainMah += (prev.capacity - curr.capacity)
+                    }
+                }
             }
             
             var appCPU: [String: Double] = [:]
@@ -621,7 +652,12 @@ class EnergyHistoryManager {
         "ShareSheetUI", "aslmanager", "recentfiles", "prl_client_app", "Activity Monitor",
         "Keychain Circle Notification", "SAExtensionOrchestrator", "State Tool", "UURemote",
         "UniversalControl", "Photos", "recentsfiles", "mdbulkimport", "DisplayControls",
-        "PhotosFileProvider"
+        "PhotosFileProvider",
+        // New reported processes
+        "signpost_reporter", "PerfPowerServices", "SubmitDiagInfo", "triald_system",
+        "Electron", "SidecarRelay", "UserNotificationCenter", "UIKitSystem",
+        "ReportMemoryException", "verge-mihomo", "WebContent", "BaiduIM", "biometrickitd",
+        "corespotlightd", "corebrightnessd"
     ]
     
     private func shouldIgnoreApp(_ name: String) -> Bool {
@@ -639,7 +675,8 @@ class EnergyHistoryManager {
             "XPCService", "XPCServices", "Ingestor", "ingestor", "Subscriber", "subscriber",
             "Manager", "manager", "Server", "server", "UI", "ui", "UIService", "XPCService",
             "Provider", "provider", "Notification", "notification", "Orchestrator", "orchestrator",
-            "Tool", "tool", "Import", "import", "Export", "export"
+            "Tool", "tool", "Import", "import", "Export", "export", "Reporter", "reporter",
+            "Center", "center", "Relay", "relay", "System", "system", "Exception", "exception"
         ]
         
         for suffix in noiseSuffixes {
