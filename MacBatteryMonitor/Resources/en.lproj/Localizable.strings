@@ -73,7 +73,7 @@
 
 // Alerts
 "alert.about.title" = "MacBatteryMonitor";
-"alert.about.message" = "Version 3.0.0\n\nA modern, aesthetically pleasing macOS tool for extreme low-power battery and energy management.\nReal-time battery status and app energy usage to help you identify power-draining apps.";
+"alert.about.message" = "Version 3.1.1\n\nA modern, aesthetically pleasing macOS tool for extreme low-power battery and energy management.\nReal-time battery status and app energy usage to help you identify power-draining apps.";
 "alert.ok" = "OK";
 "alert.github" = "Go to GitHub";
 "alert.cancel" = "Cancel";
