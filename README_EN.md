@@ -31,7 +31,7 @@ Whether for daily office work or mobile development, it helps you grasp your Mac
 - **Time Remaining Estimation**: Real-time calculation of remaining usage time or time to full charge based on current power consumption.
 
 <div align="center">
-  <img src="BatteryMonitor/PromoImages/2026-01-31_17-27-51.png" width="80%" alt="Battery Details" />
+  <img src="BatteryMonitor/PromoImages/Mobile_Page3_Dark.png" width="45%" alt="Battery Details Promo" />
 </div>
 
 ### 2. Precise Application Energy Analysis

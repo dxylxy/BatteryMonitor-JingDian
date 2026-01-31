@@ -32,7 +32,7 @@
 - **剩余时间预估**：基于当前功耗实时计算剩余使用时间或充电所需时间。
 
 <div align="center">
-  <img src="BatteryMonitor/PromoImages/2026-01-31_17-27-51.png" width="80%" alt="Battery Details" />
+  <img src="BatteryMonitor/PromoImages/Mobile_Page3_Dark.png" width="45%" alt="Battery Details Promo" />
 </div>
 
 ### 2. 精准应用能耗分析
