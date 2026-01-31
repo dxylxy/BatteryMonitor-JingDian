@@ -23,7 +23,7 @@
 "menu.collapse" = "收起";
 "menu.reset_stats" = "重置消耗统计";
 "menu.about" = "关于 静•电";
-"menu.help" = "帮助 / GitHub 主页";
+"menu.help" = "帮助 / 检查更新";
 "menu.donate" = "打赏支持";
 "menu.export_report" = "导出能耗报告";
 "menu.export_csv" = "导出为 CSV";
@@ -73,7 +73,7 @@
 
 // Alerts
 "alert.about.title" = "静•电";
-"alert.about.message" = "版本 2.0.4\n\n一款遵循现代审美主义的 macOS 极限低功耗电池及能耗管理工具。\n实时显示电池状态和应用能耗，助你精准定位\"偷电\"应用。";
+"alert.about.message" = "版本 2.1.0\n\n一款遵循现代审美主义的 macOS 极限低功耗电池及能耗管理工具。\n实时显示电池状态和应用能耗，助你精准定位\"偷电\"应用。";
 "alert.ok" = "确定";
 "alert.github" = "前往 GitHub";
 "alert.cancel" = "取消";
