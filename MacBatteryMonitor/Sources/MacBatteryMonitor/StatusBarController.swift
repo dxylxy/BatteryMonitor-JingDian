@@ -1474,7 +1474,14 @@ class StatusBarController: NSObject, NSMenuDelegate {
         }
         
         alert.addButton(withTitle: LocalizedString("alert.ok", comment: ""))
-        alert.runModal()
+        alert.addButton(withTitle: LocalizedString("alert.github", comment: ""))
+        
+        let response = alert.runModal()
+        if response == .alertSecondButtonReturn {
+            if let url = URL(string: "https://github.com/dxylxy/BatteryMonitor-JingDian") {
+                NSWorkspace.shared.open(url)
+            }
+        }
     }
     
     // 获取应用图标（优先使用资源文件，开发模式下回退到本地路径）
