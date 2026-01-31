@@ -5,7 +5,7 @@ class GitHubUpdater {
     static let shared = GitHubUpdater()
     
     private let repoOwner = "dxylxy"
-    private let repoName = "BatteryMonitor-JingDian"
+    private let repoName = "MacBatteryMonitor-JingDian"
     private let currentVersion = "3.0.0"
     
     private init() {}

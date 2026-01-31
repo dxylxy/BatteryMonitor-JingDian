@@ -1478,7 +1478,7 @@ class StatusBarController: NSObject, NSMenuDelegate {
         
         let response = alert.runModal()
         if response == .alertSecondButtonReturn {
-            if let url = URL(string: "https://github.com/dxylxy/BatteryMonitor-JingDian") {
+            if let url = URL(string: "https://github.com/dxylxy/MacBatteryMonitor-JingDian") {
                 NSWorkspace.shared.open(url)
             }
         }
@@ -1504,7 +1504,7 @@ class StatusBarController: NSObject, NSMenuDelegate {
     
     /// 打开项目 GitHub 仓库
     @objc private func openProjectRepo() {
-        if let url = URL(string: "https://github.com/dxylxy/BatteryMonitor-JingDian") {
+        if let url = URL(string: "https://github.com/dxylxy/MacBatteryMonitor-JingDian") {
             NSWorkspace.shared.open(url)
         }
     }
