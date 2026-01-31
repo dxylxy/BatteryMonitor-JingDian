@@ -1502,16 +1502,16 @@ class StatusBarController: NSObject, NSMenuDelegate {
         GitHubUpdater.shared.checkForUpdates(manual: true)
     }
     
-    /// 打开 GitHub 个人主页
-    @objc private func openGitHubProfile() {
-        if let url = URL(string: "https://github.com/dxylxy") {
+    /// 打开项目 GitHub 仓库
+    @objc private func openProjectRepo() {
+        if let url = URL(string: "https://github.com/dxylxy/BatteryMonitor-JingDian") {
             NSWorkspace.shared.open(url)
         }
     }
     
-    /// 显示打赏信息 -> 跳转到 GitHub 个人主页
+    /// 显示打赏信息 -> 跳转到项目 GitHub 仓库
     @objc private func showDonation() {
-        openGitHubProfile()
+        openProjectRepo()
     }
     
     /// 导出 CSV 报告

@@ -6,7 +6,7 @@ class GitHubUpdater {
     
     private let repoOwner = "dxylxy"
     private let repoName = "BatteryMonitor-JingDian"
-    private let currentVersion = "2.4.0"
+    private let currentVersion = "2.4.1"
     
     private init() {}
     
@@ -59,6 +59,14 @@ class GitHubUpdater {
                 }
             } catch {
                 print("Parse update JSON failed: \(error)")
+                if manual {
+                    DispatchQueue.main.async {
+                        self.showAlert(
+                           title: LocalizedString("update.check_error.title", comment: ""),
+                           message: LocalizedString("update.check_error.message", comment: "")
+                        )
+                    }
+                }
             }
         }.resume()
     }
