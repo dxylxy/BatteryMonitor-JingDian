@@ -1380,8 +1380,8 @@ class StatusBarController: NSObject, NSMenuDelegate {
         aboutItem.target = self
         settingsMenu.addItem(aboutItem)
         
-        // 帮助 / GitHub
-        let helpItem = NSMenuItem(title: LocalizedString("menu.help", comment: ""), action: #selector(openGitHub), keyEquivalent: "")
+        // 检查更新
+        let helpItem = NSMenuItem(title: LocalizedString("menu.help", comment: ""), action: #selector(checkForUpdatesAction), keyEquivalent: "")
         helpItem.target = self
         settingsMenu.addItem(helpItem)
         
@@ -1497,16 +1497,21 @@ class StatusBarController: NSObject, NSMenuDelegate {
         return nil
     }
     
-    /// 打开 GitHub 页面 (现在改为检查更新)
-    @objc private func openGitHub() {
+    /// 检查更新
+    @objc private func checkForUpdatesAction() {
         GitHubUpdater.shared.checkForUpdates(manual: true)
     }
     
-    /// 显示打赏信息
-    /// 显示打赏/支持信息 -> 跳转到 GitHub 主页
+    /// 打开 GitHub 个人主页
+    @objc private func openGitHubProfile() {
+        if let url = URL(string: "https://github.com/dxylxy") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+    
+    /// 显示打赏信息 -> 跳转到 GitHub 个人主页
     @objc private func showDonation() {
-        // 大佬说打赏链接也追溯到主页
-        openGitHub()
+        openGitHubProfile()
     }
     
     /// 导出 CSV 报告
