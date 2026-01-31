@@ -14,3 +14,14 @@ BatteryMonitor
 
 # 临时图标资源（如果保留 generate_icon.py 则不需要原始图）
 icon_1024.png
+
+# 脚本和无关文件
+showcase_script*.md
+*_script*.md
+create_icon.py
+generate_icon.py
+*.py
+BatteryMonitor.app.zip
+AppIcon_new.png
+GUIDE_GITHUB.md
+应用展示/
