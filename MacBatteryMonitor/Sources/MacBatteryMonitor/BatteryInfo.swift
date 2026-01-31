@@ -579,34 +579,7 @@ class EnergyHistoryManager {
         return max(1, maxCPU)
     }
     
-    /// 系统进程黑名单（这些进程不显示给用户）
-    private let systemProcessBlacklist: Set<String> = [
-        "kernel_task", "launchd", "WindowServer", "loginwindow", "SystemUIServer",
-        "Finder", "Dock", "Spotlight", "mds", "mds_stores", "mdworker", "mdworker_shared",
-        "cfprefsd", "distnoted", "trustd", "secinitd", "securityd", "coreservicesd",
-        "bluetoothd", "airportd", "wifid", "locationd", "nsurlsessiond", "networkserviceproxy",
-        "powerd", "thermald", "syslogd", "logd", "configd", "notifyd", "usernoted",
-        "WindowManager", "ControlCenter", "NotificationCenter", "AXVisualSupportAgent",
-        "coreaudiod", "audioclocksyncd", "corespeechd", "audio", "AppleSpell",
-        "backupd", "cloudd", "bird", "netbiosd", "CalendarAgent", "AddressBookSource",
-        "VTEncoderXPCService", "com.apple.WebKit.GPU", "com.apple.WebKit.WebContent",
-        "com.apple.WebKit.Networking", "com.apple.DriverKit-AppleUserHIDDrivers",
-        "com.apple.Safari.SafeBrowsing", "SafariCloudHistoryPushAgent",
-        "smd", "containermanagerd", "runningboardd", "CommCenter", "UserEventAgent",
-        "sharingd", "rapportd", "IMDPersistenceAgent", "identityservicesd", "imagent",
-        "akd", "amsaccountsd", "amsengagementd", "callservicesd", "deleted",
-        "diagnosticd", "diskarbitrationd", "diskmanagementd", "fileproviderd",
-        "fseventsd", "hidd", "iconservicesagent", "lsd", "mediaanalysisd",
-        "opendirectoryd", "pbs", "sandboxd", "secd", "symptomsd", "sysextd",
-        "syspolicyd", "timed", "trustdFileHelper", "universalaccessd", "usermanagerd",
-        "warmd", "xpcproxy", "duetexpertd", "siriknowledged", "parsecd",
-        "suggestd", "coreduetd", "intelligenceplatformd", "knowledgeconstructiond",
-        "contextstored", "proactiveeventtrackerd", "peopled", "photoanalysisd",
-        "ReportCrash", "storeaccountd", "bookassetd", "fud", "gamecontrollerd",
-        "avconferenced", "WiFiAgent", "WirelessRadioManagerd", "ctkd", "pkd",
-        "AMPDevicesAgent", "AMPLibraryAgent", "AMPArtworkAgent", "AMPDeviceDiscoveryAgent",
-        "CVMServer", "gpuinfo", "MTLCompilerService"
-    ]
+
     
     /// 将 Helper/子进程名称归并到主应用名称
     private func getAppName(from processName: String) -> String {
@@ -647,50 +620,40 @@ class EnergyHistoryManager {
         return name
     }
     
-    /// 检查是否为系统进程 (排除噪音)
-    private func isSystemProcess(_ name: String) -> Bool {
-        // 1. 白名单：如果是明确的用户应用，直接放行 (避免误杀)
-        let whitelist = ["Safari", "Xcode", "Finder", "Terminal", "iTerm", "Visual Studio Code", "Cursor", "Chrome", "Firefox", "Music", "Mail", "Notes", "Preview", "System Settings", "System Preferences", "WeChat", "QQ", "DingTalk"]
-        if whitelist.contains(name) {
-            return false
-        }
-        
-        // 2. 黑名单：已知系统进程
-        if systemProcessBlacklist.contains(name) {
-            return true
-        }
-        
-        // 3. 特征过滤：系统守护进程、插件、扩展
-        // 包含以下后缀的通常是噪音
-        let noiseSuffixes = [
-            "d", "d_sim", "agent", "Agent", "service", "Service", "helper", "Helper",
-            "Extension", "extension", "Plugin", "plugin", "XPC", "xpc",
-            "Daemon", "daemon", "Wrapper", "wrapper", "LoginItem", "Runner", "runner",
-            "XPCService", "XPCServices"
-        ]
-        
-        for suffix in noiseSuffixes {
-            if name.hasSuffix(suffix) {
-                return true
-            }
-        }
-        
-        // com.apple. 开头的通常是系统服务
-        if name.hasPrefix("com.apple.") {
-            return true
-        }
-        
-        // 4. 其他关键字过滤
-        if name.contains("Widget") || name.contains("Spotlight") || name.contains("Core") || name.contains("Siri") {
-            return true
-        }
-        
-        return false
-    }
-    
     private func fetchCurrentApps() -> [AppEnergyRecord] {
         var appCPU: [String: (cpu: Double, pid: Int)] = [:]
         let now = Date()
+        
+        // 构建白名单：仅包含 Dock 和 菜单栏中可见的应用程序
+        var allowedApps = Set<String>()
+        // 始终包含自身
+        allowedApps.insert("MacBatteryMonitor")
+        allowedApps.insert("BatteryMonitor")
+        allowedApps.insert("静•电")
+        
+        let runningApps = NSWorkspace.shared.runningApplications
+        for app in runningApps {
+            // 1. 本地化名称 (例如 "Music" 或 "音乐")
+            if let name = app.localizedName {
+                allowedApps.insert(name)
+            }
+            // 2. Bundle 完整名称 (例如 "com.apple.Music")
+            if let id = app.bundleIdentifier {
+                allowedApps.insert(id)
+                // 3. Bundle 最后组件 (例如 "Music")
+                if let last = id.components(separatedBy: ".").last {
+                    allowedApps.insert(last)
+                }
+            }
+            // 4. 文件名 (例如 "Music")
+            if let url = app.bundleURL {
+                let name = url.deletingPathExtension().lastPathComponent
+                allowedApps.insert(name)
+            }
+            if let url = app.executableURL {
+                allowedApps.insert(url.lastPathComponent)
+            }
+        }
         
         let task = Process()
         task.launchPath = "/bin/ps"
@@ -724,20 +687,15 @@ class EnergyHistoryManager {
                         }
                         
                         // 跳过特殊进程
-                        if rawName.hasPrefix("(") || rawName == "BatteryMonitor" || rawName == "静电" || rawName == "ps" {
-                            continue
-                        }
-                        
-                        // 跳过系统进程
-                        if isSystemProcess(rawName) {
+                        if rawName.hasPrefix("(") || rawName == "ps" {
                             continue
                         }
                         
                         // 归并到主应用名称
                         let appName = getAppName(from: rawName)
                         
-                        // 再次检查归并后的名称是否为系统进程
-                        if isSystemProcess(appName) {
+                        // 严格白名单过滤：只显示运行中的用户应用
+                        if !allowedApps.contains(appName) {
                             continue
                         }
                         
