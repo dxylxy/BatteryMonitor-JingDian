@@ -30,6 +30,10 @@ Whether for daily office work or mobile development, it helps you grasp your Mac
 - **Health Management**: Intuitively displays battery health, cycle count, and design capacity comparison.
 - **Time Remaining Estimation**: Real-time calculation of remaining usage time or time to full charge based on current power consumption.
 
+<div align="center">
+  <img src="BatteryMonitor/PromoImages/2026-01-31_17-27-51.png" width="80%" alt="Battery Details" />
+</div>
+
 ### 2. Precise Application Energy Analysis
 - **Real-time Rankings**: Updates the list of applications with the highest CPU usage every second, instantly spotting high-energy processes.
 - **36-Hour History**: Automatically records application energy consumption data for the past **36 hours**.
