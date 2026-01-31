@@ -1,6 +1,50 @@
 import Foundation
 import AppKit
 import IOKit.ps
+import Darwin
+
+// MARK: - libproc API declarations
+
+@_silgen_name("proc_listallpids")
+func proc_listallpids(_ buffer: UnsafeMutableRawPointer?, _ buffersize: Int32) -> Int32
+
+@_silgen_name("proc_pidinfo")
+func proc_pidinfo(_ pid: Int32, _ flavor: Int32, _ arg: UInt64,
+                  _ buffer: UnsafeMutableRawPointer?, _ buffersize: Int32) -> Int32
+
+@_silgen_name("proc_name")
+func proc_name(_ pid: Int32, _ buffer: UnsafeMutableRawPointer?, _ buffersize: UInt32) -> Int32
+
+// proc_pidinfo flavor constants
+let PROC_PIDTASKINFO: Int32 = 4
+
+// proc_taskinfo structure (matches Darwin's proc_taskinfo)
+struct ProcTaskInfo {
+    var pti_virtual_size: UInt64 = 0
+    var pti_resident_size: UInt64 = 0
+    var pti_total_user: UInt64 = 0      // total user CPU time (nanoseconds)
+    var pti_total_system: UInt64 = 0    // total system CPU time (nanoseconds)
+    var pti_threads_user: UInt64 = 0
+    var pti_threads_system: UInt64 = 0
+    var pti_policy: Int32 = 0
+    var pti_faults: Int32 = 0
+    var pti_pageins: Int32 = 0
+    var pti_cow_faults: Int32 = 0
+    var pti_messages_sent: Int32 = 0
+    var pti_messages_received: Int32 = 0
+    var pti_syscalls_mach: Int32 = 0
+    var pti_syscalls_unix: Int32 = 0
+    var pti_csw: Int32 = 0
+    var pti_threadnum: Int32 = 0
+    var pti_numrunning: Int32 = 0
+    var pti_priority: Int32 = 0
+}
+
+/// CPU 时间缓存（用于计算 CPU 使用率）
+struct CPUSample {
+    let timestamp: Date
+    let totalCPUTime: UInt64  // user + system in nanoseconds
+}
 
 /// 电池信息结构体
 struct BatteryInfo {
@@ -194,6 +238,7 @@ class EnergyHistoryManager {
     private var runningProcesses: Set<String> = []
     private var appHistory: [String: [(time: Date, cpuPercent: Double)]] = [:]  // 每个应用的 CPU 历史
     private var totalCPUHistory: [(time: Date, totalCPU: Double)] = []  // 每个时间点的总 CPU
+    private var cpuSampleCache: [Int32: CPUSample] = [:]  // PID -> 上次 CPU 采样（用于计算 CPU 使用率）
     private let queue = DispatchQueue(label: "energy.history", qos: .background)
     
     // 持久化路径
@@ -752,64 +797,91 @@ class EnergyHistoryManager {
             if let url = app.executableURL { allowedApps.insert(url.lastPathComponent) }
         }
         
-        let task = Process()
-        task.launchPath = "/bin/ps"
-        task.arguments = ["-Aceo", "pid,pcpu,comm", "-r"]
+        // 使用原生 libproc API 获取进程信息（无需 fork 进程）
         
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = FileHandle.nullDevice
+        // 获取所有进程 PID
+        let pidCount = proc_listallpids(nil, 0)
+        guard pidCount > 0 else { return [] }
         
-        do {
-            try task.run()
-            task.waitUntilExit()
+        var pids = [Int32](repeating: 0, count: Int(pidCount))
+        let actualCount = pids.withUnsafeMutableBufferPointer { buffer in
+            proc_listallpids(buffer.baseAddress, Int32(buffer.count) * Int32(MemoryLayout<Int32>.size))
+        }
+        
+        guard actualCount > 0 else { return [] }
+        
+        var newCache: [Int32: CPUSample] = [:]
+        
+        for i in 0..<Int(actualCount) {
+            let pid = pids[i]
+            if pid <= 0 { continue }
             
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8) {
-                let lines = output.components(separatedBy: "\n")
-                
-                for line in lines.dropFirst() {
-                    let parts = line.trimmingCharacters(in: .whitespaces)
-                        .components(separatedBy: .whitespaces)
-                        .filter { !$0.isEmpty }
-                    
-                    if parts.count >= 3 {
-                        let pid = Int(parts[0]) ?? 0
-                        let cpu = Double(parts[1]) ?? 0
-                        var rawName = parts[2...].joined(separator: " ")
-                        
-                        if let lastComponent = rawName.components(separatedBy: "/").last {
-                            rawName = lastComponent
-                        }
-                        
-                        // 跳过特殊进程
-                        if rawName.hasPrefix("(") || rawName == "ps" {
-                            continue
-                        }
-                        
-                        // 1. 初步过滤：如果直接是黑名单中的，跳过
-                        if shouldIgnoreApp(rawName) { continue }
-                        
-                        // 归并到主应用名称
-                        let appName = getAppName(from: rawName)
-                        
-                        // 2. 严格白名单过滤：只显示运行中的用户应用
-                        // 注意：如果白名单启用，应该非常严格。
-                        // 为了防止误杀（比如白名单里没有但确实是用户应用），我们可以结合黑名单逻辑
-                        // 但既然用户想要"Dock应用"，严格白名单是符合预期的。
-                        if !allowedApps.contains(appName) {
-                            continue
-                        }
-                        
-                        if let existing = appCPU[appName] {
-                            appCPU[appName] = (cpu: existing.cpu + cpu, pid: existing.pid)
-                        } else {
-                            appCPU[appName] = (cpu: cpu, pid: pid)
-                        }
-                    }
+            // 获取进程名称
+            var nameBuffer = [CChar](repeating: 0, count: 1024)
+            let nameLen = proc_name(pid, &nameBuffer, UInt32(nameBuffer.count))
+            guard nameLen > 0 else { continue }
+            
+            var rawName = String(cString: nameBuffer)
+            
+            // 提取最后的路径组件
+            if let lastComponent = rawName.components(separatedBy: "/").last {
+                rawName = lastComponent
+            }
+            
+            // 跳过特殊进程
+            if rawName.hasPrefix("(") || rawName.isEmpty { continue }
+            
+            // 1. 初步过滤：如果直接是黑名单中的，跳过
+            if shouldIgnoreApp(rawName) { continue }
+            
+            // 归并到主应用名称
+            let appName = getAppName(from: rawName)
+            
+            // 2. 严格白名单过滤：只显示运行中的用户应用
+            if !allowedApps.contains(appName) { continue }
+            
+            // 获取进程任务信息
+            var taskInfo = ProcTaskInfo()
+            let infoSize = proc_pidinfo(
+                pid,
+                PROC_PIDTASKINFO,
+                0,
+                &taskInfo,
+                Int32(MemoryLayout<ProcTaskInfo>.size)
+            )
+            
+            guard infoSize > 0 else { continue }
+            
+            // 计算 CPU 时间（用户态 + 系统态，单位：纳秒）
+            let totalCPUTime = taskInfo.pti_total_user + taskInfo.pti_total_system
+            
+            // 记录当前采样
+            let currentSample = CPUSample(timestamp: now, totalCPUTime: totalCPUTime)
+            newCache[pid] = currentSample
+            
+            // 计算 CPU 使用率
+            var cpuPercent: Double = 0
+            if let previousSample = cpuSampleCache[pid] {
+                let timeDelta = now.timeIntervalSince(previousSample.timestamp)
+                if timeDelta > 0.1 {  // 至少 100ms 间隔
+                    let cpuDelta = totalCPUTime > previousSample.totalCPUTime
+                        ? totalCPUTime - previousSample.totalCPUTime
+                        : 0
+                    // 转换为百分比：纳秒 -> 秒，然后除以时间间隔
+                    cpuPercent = Double(cpuDelta) / 1_000_000_000 / timeDelta * 100
                 }
             }
-        } catch {}
+            
+            // 合并同名应用的 CPU
+            if let existing = appCPU[appName] {
+                appCPU[appName] = (cpu: existing.cpu + cpuPercent, pid: Int(existing.pid))
+            } else {
+                appCPU[appName] = (cpu: cpuPercent, pid: Int(pid))
+            }
+        }
+        
+        // 更新缓存
+        cpuSampleCache = newCache
         
         var apps: [AppEnergyRecord] = []
         for (name, data) in appCPU {

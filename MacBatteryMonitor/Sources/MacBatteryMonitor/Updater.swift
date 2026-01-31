@@ -6,7 +6,7 @@ class GitHubUpdater {
     
     private let repoOwner = "dxylxy"
     private let repoName = "BatteryMonitor-JingDian"
-    private let currentVersion = "2.4.2"
+    private let currentVersion = "3.0.0"
     
     private init() {}
     
