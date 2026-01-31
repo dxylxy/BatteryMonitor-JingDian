@@ -7,7 +7,12 @@
 [![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-black.svg)]()
 [![Swift](https://img.shields.io/badge/swift-5.9-black.svg)]()
 
+
 [English](README_EN.md) | [中文](README.md)
+
+<div align="center">
+  <img src="BatteryMonitor/PromoImages/Desktop_Cover.png" width="100%" alt="Battery Monitor Banner" />
+</div>
 
 ---
 
@@ -30,8 +35,9 @@ Whether for daily office work or mobile development, it helps you grasp your Mac
 - **36-Hour History**: Automatically records application energy consumption data for the past **36 hours**.
 - **Energy Contribution Percentage**: Unlike traditional CPU usage rates, we calculate the **energy contribution percentage (0-100%)**. This more accurately reflects the proportion of total system power consumption used by an application at a given moment.
 - **Smart Sleep Detection**: Automatically detects system sleep or shutdown periods, identified by gray break areas in the chart.
-<img width="862" height="931" alt="2026-01-30_13-15-57" src="https://github.com/user-attachments/assets/ac3650b8-5867-4a58-9d79-cade37ecd8c9" />
-<img width="943" height="716" alt="2026-01-30_03-30-34" src="https://github.com/user-attachments/assets/9b562019-6892-436c-be9c-32aa519fa076" />
+<div align="center">
+  <img src="BatteryMonitor/PromoImages/Mobile_Page2_Dark.png" width="45%" alt="Mobile Promo Dark" />
+</div>
 
 
 ### 3. Persistent Data Tracking
