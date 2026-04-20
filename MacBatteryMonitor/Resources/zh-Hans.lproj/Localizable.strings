@@ -7,6 +7,7 @@
 
 // Status Bar & Menu Placeholders
 "status.battery_info.placeholder" = "电量: -- / -- mAh (--%) ";
+"status.battery.title" = "电池";
 "status.power_info.placeholder" = "功率: -- W · -- mA";
 "status.time.remaining.placeholder" = "剩余时间: --";
 "status.temp_voltage.placeholder" = "温度: --°C · 电压: -- V";
@@ -78,7 +79,7 @@
 
 // Alerts
 "alert.about.title" = "静•电";
-"alert.about.message" = "版本 3.2.0\n\n一款遵循现代审美主义的 macOS 极限低功耗电池及能耗管理工具。\n实时显示电池状态和应用能耗，助你精准定位\"偷电\"应用。\n\n如需反馈 Bug 或需要帮助，请联系：tongyuliu@vip.qq.com";
+"alert.about.message" = "版本 3.2.1\n\n一款遵循现代审美主义的 macOS 极限低功耗电池及能耗管理工具。\n实时显示电池状态和应用能耗，助你精准定位\"偷电\"应用。\n\n如需反馈 Bug 或需要帮助，请联系：tongyuliu@vip.qq.com";
 "alert.ok" = "确定";
 "alert.github" = "前往 GitHub";
 "alert.cancel" = "取消";

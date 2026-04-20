@@ -1,4 +1,5 @@
 import AppKit
+import IOKit.ps
 import UniformTypeIdentifiers
 
 /// 应用 CPU 曲线弹出窗口
@@ -1047,6 +1048,13 @@ class LiveMenuItemView: NSView {
     
     required init?(coder: NSCoder) { fatalError() }
     
+    func preferredMenuWidth() -> CGFloat {
+        let textWidth = ceil(label.fittingSize.width)
+        let leftInset: CGFloat = hasIcon ? 36 : 14
+        let rightInset: CGFloat = 14
+        return textWidth + leftInset + rightInset
+    }
+    
     /// 获取应用图标
     private func getAppIcon(for appName: String) -> NSImage? {
         // 1. 尝试从正在运行的应用中获取
@@ -1072,6 +1080,82 @@ class LiveMenuItemView: NSView {
         
         // 3. 返回通用应用图标
         return NSWorkspace.shared.icon(for: .application)
+    }
+}
+
+/// 菜单顶部的电池摘要视图（标题 + 百分比 + 容量）
+class BatterySummaryMenuItemView: NSView {
+    private let titleLabel: NSTextField
+    private let percentageLabel: NSTextField
+    private let detailLabel: NSTextField
+    
+    override var intrinsicContentSize: NSSize {
+        let titleHeight = titleLabel.fittingSize.height
+        let detailHeight = detailLabel.fittingSize.height
+        let totalHeight = ceil(titleHeight + detailHeight + 28)
+        return NSSize(width: NSView.noIntrinsicMetric, height: max(60, totalHeight))
+    }
+    
+    override init(frame: NSRect) {
+        titleLabel = NSTextField(labelWithString: "")
+        titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
+        titleLabel.textColor = .labelColor
+        
+        percentageLabel = NSTextField(labelWithString: "")
+        percentageLabel.font = .monospacedDigitSystemFont(ofSize: 16, weight: .semibold)
+        percentageLabel.textColor = .labelColor
+        percentageLabel.alignment = .right
+        
+        detailLabel = NSTextField(labelWithString: "")
+        detailLabel.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
+        detailLabel.textColor = .secondaryLabelColor
+        detailLabel.lineBreakMode = .byClipping
+        detailLabel.cell?.wraps = false
+        detailLabel.cell?.truncatesLastVisibleLine = false
+        
+        super.init(frame: frame)
+        
+        addSubview(titleLabel)
+        addSubview(percentageLabel)
+        addSubview(detailLabel)
+        
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        percentageLabel.translatesAutoresizingMaskIntoConstraints = false
+        detailLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        NSLayoutConstraint.activate([
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 11),
+            
+            percentageLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            percentageLabel.firstBaselineAnchor.constraint(equalTo: titleLabel.firstBaselineAnchor),
+            percentageLabel.leadingAnchor.constraint(greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: 12),
+            
+            detailLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            detailLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 6),
+            detailLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -14),
+            detailLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -11)
+        ])
+    }
+    
+    required init?(coder: NSCoder) { fatalError() }
+    
+    func preferredMenuWidth() -> CGFloat {
+        let titleRowWidth = ceil(titleLabel.fittingSize.width + percentageLabel.fittingSize.width + 40)
+        let detailRowWidth = ceil(detailLabel.fittingSize.width + 28)
+        return max(titleRowWidth, detailRowWidth)
+    }
+    
+    func update(title: String, percentage: Int, currentCapacity: Int, maxCapacity: Int) {
+        titleLabel.stringValue = title
+        percentageLabel.stringValue = "\(percentage)%"
+        detailLabel.stringValue = "\(currentCapacity) / \(maxCapacity) mAh"
+    }
+    
+    func showPlaceholder(title: String) {
+        titleLabel.stringValue = title
+        percentageLabel.stringValue = "--%"
+        detailLabel.stringValue = "-- / -- mAh"
     }
 }
 
@@ -1163,15 +1247,40 @@ class StatusBarController: NSObject, NSMenuDelegate {
         case lastDischarge
     }
     
+    private enum BatteryIconState {
+        case normal
+        case charging
+        case pluggedIn
+        case low
+    }
+    
+    private struct StatusBarSymbolMetrics {
+        static let batteryPointSize: CGFloat = 17
+        static let plugPointSize: CGFloat = 15
+        static let weight: NSFont.Weight = .regular
+    }
+    
+    private struct TopLevelMenuMetrics {
+        static let minWidth: CGFloat = 320
+        static let maxWidth: CGFloat = 360
+        static let initialWidth: CGFloat = maxWidth
+        static let submenuItemExtraWidth: CGFloat = 50
+        static let shortcutItemExtraWidth: CGFloat = 72
+    }
+    
     private var statusItem: NSStatusItem!
     private var menu: NSMenu!
     private var backgroundTimer: Timer?
     private var liveTimer: DispatchSourceTimer?
+    private var powerSourceRunLoopSource: CFRunLoopSource?
     private var tracker: ConsumptionTracker?
     private var isMenuOpen = false
     private var lastRefreshTime: Date = Date()  // 追踪刷新时间
+    private var deferredMenuRefreshWorkItem: DispatchWorkItem?
+    private var menuRefreshGeneration: Int = 0
     
     private var liveViews: [LiveMenuItemView] = []
+    private var batterySummaryView: BatterySummaryMenuItemView?
     private var appHistoryItems: [NSMenuItem] = []
     private var currentAppsSubmenu: NSMenu!
     private var currentAppViews: [LiveMenuItemView] = []
@@ -1195,76 +1304,162 @@ class StatusBarController: NSObject, NSMenuDelegate {
         setupStatusBar()
         setupMenu()
         setupSettingsMenu()
+        startPowerSourceMonitoring()
         startBackgroundTimer()
-        EnergyHistoryManager.shared.updateInBackground { [weak self] in
-            self?.updateStatusBar()
-        }
+        updateStatusBar()
+        EnergyHistoryManager.shared.updateInBackground()
     }
     
     private func setupStatusBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
-        // 使用原生风格的电池图标
+        // 使用官方 SF Symbols 作为菜单栏电池图标
         if let button = statusItem.button {
-            button.image = createBatteryImage(percentage: 100, charging: false)
+            button.image = createBatteryImage(percentage: 100, isCharging: false, isPluggedIn: false)
+            button.imageScaling = .scaleNone
             // 设置鼠标事件处理
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+            button.sendAction(on: [.leftMouseDown, .rightMouseDown])
             button.action = #selector(handleClick(_:))
             button.target = self
         }
     }
     
-    /// 创建原生风格电池图标（缩小版）
-    private func createBatteryImage(percentage: Int, charging: Bool) -> NSImage {
-        let size = NSSize(width: 18, height: 9)
-        let image = NSImage(size: size, flipped: false) { rect in
-            let path = NSBezierPath()
-            
-            // 电池外框
-            let bodyRect = NSRect(x: 0, y: 0.5, width: 15, height: 8)
-            path.appendRoundedRect(bodyRect, xRadius: 1.5, yRadius: 1.5)
-            
-            // 电池头
-            let capRect = NSRect(x: 15, y: 2.5, width: 2, height: 4)
-            path.appendRoundedRect(capRect, xRadius: 0.5, yRadius: 0.5)
-            
-            NSColor.labelColor.withAlphaComponent(0.8).setStroke()
-            path.lineWidth = 1
-            path.stroke()
-            
-            // 填充电量
-            let fillWidth = max(0, CGFloat(percentage) / 100 * 11)
-            let fillRect = NSRect(x: 2, y: 2.5, width: fillWidth, height: 4)
-            
-            if charging {
-                NSColor.systemGreen.setFill()
-            } else if percentage <= 20 {
-                NSColor.systemRed.setFill()
-            } else {
-                NSColor.labelColor.withAlphaComponent(0.6).setFill()
-            }
-            
-            NSBezierPath(roundedRect: fillRect, xRadius: 0.5, yRadius: 0.5).fill()
-            
-            // 充电闪电符号
-            if charging {
-                let bolt = NSBezierPath()
-                bolt.move(to: NSPoint(x: 8.5, y: 1))
-                bolt.line(to: NSPoint(x: 6, y: 4.5))
-                bolt.line(to: NSPoint(x: 7.5, y: 4.5))
-                bolt.line(to: NSPoint(x: 6.5, y: 8))
-                bolt.line(to: NSPoint(x: 9, y: 4))
-                bolt.line(to: NSPoint(x: 7.5, y: 4))
-                bolt.close()
-                NSColor.white.setFill()
-                bolt.fill()
-            }
-            
-            return true
+    /// 创建基于官方 SF Symbols 的菜单栏电池图标
+    private func createBatteryImage(percentage: Int, isCharging: Bool, isPluggedIn: Bool) -> NSImage {
+        let clampedPercentage = min(max(percentage, 0), 100)
+        let state = batteryIconState(
+            percentage: clampedPercentage,
+            isCharging: isCharging,
+            isPluggedIn: isPluggedIn
+        )
+        let symbolName = statusSymbolName(for: state, percentage: clampedPercentage)
+        let pointSize = symbolPointSize(for: state)
+        
+        if state == .low,
+           let image = tintedStatusSymbol(named: symbolName, pointSize: pointSize, color: .systemRed) {
+            return image
         }
         
-        image.isTemplate = false
+        let image = configuredStatusSymbol(named: symbolName, pointSize: pointSize) ?? NSImage()
+        image.isTemplate = true
         return image
+    }
+    
+    private func batteryIconState(percentage: Int, isCharging: Bool, isPluggedIn: Bool) -> BatteryIconState {
+        if isCharging {
+            return .charging
+        }
+        if isPluggedIn {
+            return .pluggedIn
+        }
+        if percentage <= 20 {
+            return .low
+        }
+        return .normal
+    }
+    
+    private func statusSymbolName(for state: BatteryIconState, percentage: Int) -> String {
+        switch state {
+        case .charging:
+            return "battery.100percent.bolt"
+        case .pluggedIn:
+            return "powerplug"
+        case .normal, .low:
+            return batterySymbolName(for: percentage)
+        }
+    }
+    
+    private func batterySymbolName(for percentage: Int) -> String {
+        switch percentage {
+        case 0...12:
+            return "battery.0percent"
+        case 13...37:
+            return "battery.25percent"
+        case 38...62:
+            return "battery.50percent"
+        case 63...87:
+            return "battery.75percent"
+        default:
+            return "battery.100percent"
+        }
+    }
+    
+    private func symbolPointSize(for state: BatteryIconState) -> CGFloat {
+        switch state {
+        case .pluggedIn:
+            return StatusBarSymbolMetrics.plugPointSize
+        case .charging, .normal, .low:
+            return StatusBarSymbolMetrics.batteryPointSize
+        }
+    }
+    
+    private func configuredStatusSymbol(named systemName: String, pointSize: CGFloat) -> NSImage? {
+        guard let symbol = NSImage(systemSymbolName: systemName, accessibilityDescription: nil) else {
+            return nil
+        }
+        
+        let configuration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: StatusBarSymbolMetrics.weight)
+        return symbol.withSymbolConfiguration(configuration)
+    }
+    
+    private func tintedStatusSymbol(named systemName: String, pointSize: CGFloat, color: NSColor) -> NSImage? {
+        guard let symbol = configuredStatusSymbol(named: systemName, pointSize: pointSize) else { return nil }
+        
+        let tintedSymbol = NSImage(size: symbol.size)
+        tintedSymbol.lockFocus()
+        let symbolBounds = NSRect(origin: .zero, size: symbol.size)
+        symbol.draw(in: symbolBounds)
+        NSGraphicsContext.current?.compositingOperation = .sourceIn
+        color.setFill()
+        NSBezierPath(rect: symbolBounds).fill()
+        tintedSymbol.unlockFocus()
+        tintedSymbol.isTemplate = false
+        return tintedSymbol
+    }
+    
+    private func measuredMenuTextWidth(_ text: String, font: NSFont) -> CGFloat {
+        ceil((text as NSString).size(withAttributes: [.font: font]).width)
+    }
+    
+    private func staticTopLevelMenuWidth() -> CGFloat {
+        let menuFont = NSFont.menuFont(ofSize: 0)
+        let submenuTitles = [
+            LocalizedString("menu.app_energy_history", comment: ""),
+            LocalizedString("menu.current_active_apps", comment: "")
+        ]
+        let shortcutTitles = [
+            LocalizedString("menu.reset_stats", comment: "")
+        ]
+        
+        let widestSubmenuTitle = submenuTitles
+            .map { measuredMenuTextWidth($0, font: menuFont) + TopLevelMenuMetrics.submenuItemExtraWidth }
+            .max() ?? 0
+        let widestShortcutTitle = shortcutTitles
+            .map { measuredMenuTextWidth($0, font: menuFont) + TopLevelMenuMetrics.shortcutItemExtraWidth }
+            .max() ?? 0
+        
+        return max(widestSubmenuTitle, widestShortcutTitle)
+    }
+    
+    private func applyTopLevelMenuWidth(_ width: CGFloat) {
+        let clampedWidth = min(max(width, TopLevelMenuMetrics.minWidth), TopLevelMenuMetrics.maxWidth)
+        
+        if let batterySummaryView {
+            let summaryHeight = max(60, batterySummaryView.fittingSize.height)
+            batterySummaryView.frame.size = NSSize(width: clampedWidth, height: summaryHeight)
+        }
+        
+        for view in liveViews {
+            view.frame.size.width = clampedWidth
+        }
+    }
+    
+    private func updateTopLevelMenuWidth() {
+        let summaryWidth = batterySummaryView?.preferredMenuWidth() ?? 0
+        let liveWidth = liveViews.map { $0.preferredMenuWidth() }.max() ?? 0
+        let staticWidth = staticTopLevelMenuWidth()
+        let targetWidth = max(summaryWidth, liveWidth, staticWidth)
+        applyTopLevelMenuWidth(targetWidth)
     }
     
     private func setupMenu() {
@@ -1279,8 +1474,18 @@ class StatusBarController: NSObject, NSMenuDelegate {
         menu.autoenablesItems = false
         
         // 电池信息区域
+        let batterySummaryItem = NSMenuItem()
+        let batterySummaryView = BatterySummaryMenuItemView(frame: NSRect(x: 0, y: 0, width: TopLevelMenuMetrics.initialWidth, height: 60))
+        batterySummaryView.showPlaceholder(title: LocalizedString("status.battery.title", comment: ""))
+        batterySummaryView.layoutSubtreeIfNeeded()
+        let summaryHeight = max(60, batterySummaryView.fittingSize.height)
+        batterySummaryView.frame.size = NSSize(width: TopLevelMenuMetrics.initialWidth, height: summaryHeight)
+        self.batterySummaryView = batterySummaryView
+        batterySummaryItem.view = batterySummaryView
+        menu.addItem(batterySummaryItem)
+        menu.addItem(NSMenuItem.separator())
+        
         let labels = [
-            LocalizedString("status.battery_info.placeholder", comment: ""),
             LocalizedString("status.power_info.placeholder", comment: ""),
             LocalizedString("status.time.remaining.placeholder", comment: ""),
             LocalizedString("status.temp_voltage.placeholder", comment: ""),
@@ -1295,7 +1500,7 @@ class StatusBarController: NSObject, NSMenuDelegate {
             if text.isEmpty {
                 menu.addItem(NSMenuItem.separator())
             } else {
-                let view = LiveMenuItemView(frame: NSRect(x: 0, y: 0, width: 400, height: 22))
+                let view = LiveMenuItemView(frame: NSRect(x: 0, y: 0, width: TopLevelMenuMetrics.initialWidth, height: 22))
                 view.text = text
                 liveViews.append(view)
                 let item = NSMenuItem()
@@ -1411,6 +1616,8 @@ class StatusBarController: NSObject, NSMenuDelegate {
         let resetItem = NSMenuItem(title: LocalizedString("menu.reset_stats", comment: ""), action: #selector(resetTracker), keyEquivalent: "r")
         resetItem.target = self
         menu.addItem(resetItem)
+        
+        updateTopLevelMenuWidth()
         // 左键菜单不再包含开机自启动和退出选项，这些移到右键菜单
     }
     
@@ -1489,7 +1696,7 @@ class StatusBarController: NSObject, NSMenuDelegate {
         // 临时移除 action 以防止 performClick 导致递归调用
         statusItem.button?.action = nil
         
-        if event.type == .rightMouseUp {
+        if event.type == .rightMouseDown || event.type == .rightMouseUp {
             // 右键点击：显示设置菜单
             statusItem.menu = settingsMenu
             statusItem.button?.performClick(nil)
@@ -1628,19 +1835,35 @@ class StatusBarController: NSObject, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         isMenuOpen = true
         showAllCurrentApps = false
-        updateLiveContent()
-        updateBatteryChart()
-        updateAppRanking()
-        updateAppSubmenus()
+        updateBatterySummaryOnly()
+        scheduleDeferredMenuRefresh()
         startLiveTimer()
     }
     
     func menuDidClose(_ menu: NSMenu) {
         isMenuOpen = false
+        menuRefreshGeneration += 1
+        deferredMenuRefreshWorkItem?.cancel()
+        deferredMenuRefreshWorkItem = nil
         stopLiveTimer()
     }
     
     // MARK: - Timers
+    
+    private func startPowerSourceMonitoring() {
+        let context = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+        powerSourceRunLoopSource = IOPSNotificationCreateRunLoopSource({ context in
+            guard let context else { return }
+            let controller = Unmanaged<StatusBarController>.fromOpaque(context).takeUnretainedValue()
+            DispatchQueue.main.async {
+                controller.updateStatusBar()
+            }
+        }, context)?.takeRetainedValue()
+        
+        if let powerSourceRunLoopSource {
+            CFRunLoopAddSource(CFRunLoopGetMain(), powerSourceRunLoopSource, CFRunLoopMode.commonModes)
+        }
+    }
     
     private func startBackgroundTimer() {
         backgroundTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
@@ -1655,12 +1878,12 @@ class StatusBarController: NSObject, NSMenuDelegate {
     private func startLiveTimer() {
         let queue = DispatchQueue(label: "live.timer", qos: .userInteractive)
         liveTimer = DispatchSource.makeTimerSource(queue: queue)
-        liveTimer?.schedule(deadline: .now(), repeating: .seconds(1))
+        liveTimer?.schedule(deadline: .now() + .seconds(1), repeating: .seconds(1))
         liveTimer?.setEventHandler { [weak self] in
-            EnergyHistoryManager.shared.quickUpdateCurrentApps()
-            DispatchQueue.main.async {
-                self?.updateLiveContent()
-                self?.updateCurrentAppsLive()
+            EnergyHistoryManager.shared.quickUpdateCurrentApps { [weak self] in
+                guard let self, self.isMenuOpen else { return }
+                self.updateLiveContent()
+                self.updateCurrentAppsLive()
             }
         }
         liveTimer?.resume()
@@ -1673,12 +1896,7 @@ class StatusBarController: NSObject, NSMenuDelegate {
     
     // MARK: - Updates
     
-    private func updateStatusBar() {
-        guard let info = BatteryInfo.current() else {
-            statusItem.button?.title = " --"
-            return
-        }
-        
+    private func prepareTrackerIfNeeded(with info: BatteryInfo) {
         if tracker == nil {
             tracker = ConsumptionTracker(capacity: info.currentCapacity, percentage: info.percentage)
         }
@@ -1686,23 +1904,115 @@ class StatusBarController: NSObject, NSMenuDelegate {
         if info.isCharging && info.percentage >= 100 {
             tracker?.reset(capacity: info.currentCapacity, percentage: info.percentage)
         }
+    }
+    
+    private func updateBatterySummaryOnly() {
+        guard let info = BatteryInfo.current() else {
+            batterySummaryView?.showPlaceholder(title: LocalizedString("status.battery.title", comment: ""))
+            return
+        }
+        
+        prepareTrackerIfNeeded(with: info)
+        lastRefreshTime = Date()
+        
+        batterySummaryView?.update(
+            title: LocalizedString("status.battery.title", comment: ""),
+            percentage: info.percentage,
+            currentCapacity: info.currentCapacity,
+            maxCapacity: info.maxCapacity
+        )
+        updateTopLevelMenuWidth()
         
         if let button = statusItem.button {
-            button.image = createBatteryImage(percentage: info.percentage, charging: info.isCharging)
+            button.image = createBatteryImage(
+                percentage: info.percentage,
+                isCharging: info.isCharging,
+                isPluggedIn: info.isPluggedIn
+            )
+        }
+    }
+    
+    private func scheduleDeferredMenuRefresh() {
+        deferredMenuRefreshWorkItem?.cancel()
+        menuRefreshGeneration += 1
+        let generation = menuRefreshGeneration
+        
+        let topLevelRefresh = DispatchWorkItem { [weak self] in
+            guard let self, self.isMenuOpen, self.menuRefreshGeneration == generation else { return }
+            self.updateLiveContent()
+        }
+        deferredMenuRefreshWorkItem = topLevelRefresh
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08, execute: topLevelRefresh)
+        
+        EnergyHistoryManager.shared.quickUpdateCurrentApps { [weak self] in
+            guard let self, self.isMenuOpen, self.menuRefreshGeneration == generation else { return }
+            self.updateCurrentAppsLive()
+        }
+        
+        scheduleDeferredEnergyHistoryRefresh(generation: generation)
+    }
+    
+    private func scheduleDeferredEnergyHistoryRefresh(generation: Int? = nil) {
+        let targetGeneration = generation ?? menuRefreshGeneration
+        let targetRankingMode = rankingMode
+        
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self else { return }
+            
+            let chartData = EnergyHistoryManager.shared.getBatteryChartData(hours: 48)
+            let rankingApps: [(name: String, percentEstimate: Double, isRunning: Bool)]
+            switch targetRankingMode {
+            case .today:
+                rankingApps = EnergyHistoryManager.shared.getTodayTopApps(count: 15)
+            case .lastDischarge:
+                rankingApps = EnergyHistoryManager.shared.getLastDischargeRanking(minDropPercent: 5, count: 15)
+            }
+            
+            let rankingHistories = Dictionary(
+                uniqueKeysWithValues: rankingApps.map {
+                    ($0.name, EnergyHistoryManager.shared.getAppEnergyContributionHistory(appName: $0.name, hours: 36))
+                }
+            )
+            
+            DispatchQueue.main.async {
+                guard self.isMenuOpen, self.menuRefreshGeneration == targetGeneration else { return }
+                self.batteryChartView.updateData(chartData)
+                self.applyAppRanking(rankingApps, histories: rankingHistories)
+            }
+        }
+    }
+    
+    private func updateStatusBar() {
+        guard let info = BatteryInfo.current() else {
+            statusItem.button?.title = " --"
+            return
+        }
+        
+        prepareTrackerIfNeeded(with: info)
+        
+        if let button = statusItem.button {
+            button.image = createBatteryImage(
+                percentage: info.percentage,
+                isCharging: info.isCharging,
+                isPluggedIn: info.isPluggedIn
+            )
         }
     }
     
     private func updateLiveContent() {
-        guard let info = BatteryInfo.current(), liveViews.count >= 7 else { return }
+        guard let info = BatteryInfo.current(), liveViews.count >= 6 else { return }
         
-        if tracker == nil {
-            tracker = ConsumptionTracker(capacity: info.currentCapacity, percentage: info.percentage)
-        }
+        prepareTrackerIfNeeded(with: info)
         
         // 更新刷新时间
         lastRefreshTime = Date()
         
-        liveViews[0].text = String(format: LocalizedString("status.battery_info", comment: ""), info.currentCapacity, info.maxCapacity, info.percentage)
+        batterySummaryView?.update(
+            title: LocalizedString("status.battery.title", comment: ""),
+            percentage: info.percentage,
+            currentCapacity: info.currentCapacity,
+            maxCapacity: info.maxCapacity
+        )
         
         // 显示功率和充电状态（附带刷新指示）
         let refreshIndicator = "⟳"  // 刷新指示器
@@ -1714,7 +2024,7 @@ class StatusBarController: NSObject, NSMenuDelegate {
         } else {
             powerStatus = String(format: LocalizedString("status.discharging", comment: ""), info.powerWatts, info.amperage, refreshIndicator)
         }
-        liveViews[1].text = powerStatus
+        liveViews[0].text = powerStatus
         
         // 剩余时间预估
         let remainingTimeText: String
@@ -1762,24 +2072,29 @@ class StatusBarController: NSObject, NSMenuDelegate {
                 remainingTimeText = LocalizedString("time.calculating_remaining", comment: "")
             }
         }
-        liveViews[2].text = remainingTimeText
+        liveViews[1].text = remainingTimeText
         
-        liveViews[3].text = String(format: LocalizedString("status.temp_voltage", comment: ""), info.temperature, Double(info.voltage) / 1000.0)
+        liveViews[2].text = String(format: LocalizedString("status.temp_voltage", comment: ""), info.temperature, Double(info.voltage) / 1000.0)
         
         if let tracker = tracker {
             let consumedMah = tracker.consumedCapacity(current: info.currentCapacity)
             let consumedPct = tracker.consumedPercentage(current: info.percentage)
-            liveViews[4].text = String(format: LocalizedString("status.consumed", comment: ""), consumedMah, consumedPct, tracker.formattedElapsedTime)
+            liveViews[3].text = String(format: LocalizedString("status.consumed", comment: ""), consumedMah, consumedPct, tracker.formattedElapsedTime)
             
             let hoursElapsed = tracker.elapsedTime / 3600
             let mahPerHour = hoursElapsed > 0.01 ? Int(Double(consumedMah) / hoursElapsed) : 0
-            liveViews[5].text = String(format: LocalizedString("status.average", comment: ""), mahPerHour)
+            liveViews[4].text = String(format: LocalizedString("status.average", comment: ""), mahPerHour)
         }
         
-        liveViews[6].text = String(format: LocalizedString("status.health", comment: ""), info.healthPercentage, info.cycleCount, info.designCapacity)
+        liveViews[5].text = String(format: LocalizedString("status.health", comment: ""), info.healthPercentage, info.cycleCount, info.designCapacity)
+        updateTopLevelMenuWidth()
         
         if let button = statusItem.button {
-            button.image = createBatteryImage(percentage: info.percentage, charging: info.isCharging)
+            button.image = createBatteryImage(
+                percentage: info.percentage,
+                isCharging: info.isCharging,
+                isPluggedIn: info.isPluggedIn
+            )
         }
     }
     
@@ -1805,6 +2120,33 @@ class StatusBarController: NSObject, NSMenuDelegate {
         }
         
         // 注意: showMoreButtonView 已移除，现在默认展示 50 个应用
+    }
+    
+    private func applyAppRanking(_ apps: [(name: String, percentEstimate: Double, isRunning: Bool)],
+                                 histories: [String: [(time: Date, contributionPercent: Double)]]) {
+        updateRankingHeaderTitle()
+        
+        for (i, view) in appRankingViews.enumerated() {
+            let menuItemIndex = i + 7
+            guard menuItemIndex < energyHistorySubmenu.items.count else { continue }
+            let menuItem = energyHistorySubmenu.items[menuItemIndex]
+            
+            if i < apps.count {
+                let app = apps[i]
+                view.appName = app.name
+                view.percentage = app.percentEstimate
+                view.isRunning = app.isRunning
+                menuItem.isHidden = false
+                
+                if let submenu = menuItem.submenu,
+                   let chartItem = submenu.items.first,
+                   let chartView = chartItem.view as? AppCPUChartView {
+                    chartView.updateData(histories[app.name] ?? [], appName: app.name)
+                }
+            } else {
+                menuItem.isHidden = true
+            }
+        }
     }
     
     /// 显示应用 CPU 曲线弹窗
@@ -2060,7 +2402,12 @@ class StatusBarController: NSObject, NSMenuDelegate {
         saveRankingMode()
         updateRankingModeMenuState()
         updateRankingHeaderTitle()
-        updateAppRanking()
+        if isMenuOpen {
+            menuRefreshGeneration += 1
+            scheduleDeferredEnergyHistoryRefresh(generation: menuRefreshGeneration)
+        } else {
+            updateAppRanking()
+        }
     }
     
     @objc private func setRankingModeLastDischarge() {
@@ -2068,7 +2415,12 @@ class StatusBarController: NSObject, NSMenuDelegate {
         saveRankingMode()
         updateRankingModeMenuState()
         updateRankingHeaderTitle()
-        updateAppRanking()
+        if isMenuOpen {
+            menuRefreshGeneration += 1
+            scheduleDeferredEnergyHistoryRefresh(generation: menuRefreshGeneration)
+        } else {
+            updateAppRanking()
+        }
     }
     
     private func updateRankingModeMenuState() {
@@ -2161,11 +2513,17 @@ class StatusBarController: NSObject, NSMenuDelegate {
         EnergyHistoryManager.shared.saveHistory(sync: true)
         backgroundTimer?.invalidate()
         liveTimer?.cancel()
+        if let powerSourceRunLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), powerSourceRunLoopSource, CFRunLoopMode.commonModes)
+        }
         NSApplication.shared.terminate(nil)
     }
     
     deinit {
         backgroundTimer?.invalidate()
         liveTimer?.cancel()
+        if let powerSourceRunLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), powerSourceRunLoopSource, CFRunLoopMode.commonModes)
+        }
     }
 }

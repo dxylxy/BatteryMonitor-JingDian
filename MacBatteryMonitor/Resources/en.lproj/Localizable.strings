@@ -7,6 +7,7 @@
 
 // Status Bar & Menu Placeholders
 "status.battery_info.placeholder" = "Battery: -- / -- mAh (--%) ";
+"status.battery.title" = "Battery";
 "status.power_info.placeholder" = "Power: -- W · -- mA";
 "status.time.remaining.placeholder" = "Time Remaining: --";
 "status.temp_voltage.placeholder" = "Temp: --°C · Volt: -- V";
@@ -78,7 +79,7 @@
 
 // Alerts
 "alert.about.title" = "MacBatteryMonitor";
-"alert.about.message" = "Version 3.2.0\n\nA modern, aesthetically pleasing macOS tool for extreme low-power battery and energy management.\nReal-time battery status and app energy usage to help you identify power-draining apps.\n\nFor bug reports or help, contact: tongyuliu@vip.qq.com";
+"alert.about.message" = "Version 3.2.1\n\nA modern, aesthetically pleasing macOS tool for extreme low-power battery and energy management.\nReal-time battery status and app energy usage to help you identify power-draining apps.\n\nFor bug reports or help, contact: tongyuliu@vip.qq.com";
 "alert.ok" = "OK";
 "alert.github" = "Go to GitHub";
 "alert.cancel" = "Cancel";

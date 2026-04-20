@@ -438,12 +438,13 @@ class EnergyHistoryManager {
     }
     
     /// 快速更新当前应用（用于实时刷新）
-    func quickUpdateCurrentApps() {
+    func quickUpdateCurrentApps(completion: (() -> Void)? = nil) {
         queue.async { [weak self] in
             guard let self = self else { return }
             let apps = self.fetchCurrentApps()
             self.cachedCurrentApps = apps
             self.runningProcesses = Set(apps.map { $0.name })
+            DispatchQueue.main.async { completion?() }
         }
     }
     

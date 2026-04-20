@@ -2,9 +2,10 @@
 set -e
 
 # 配置
-APP_NAME="Static"
+APP_NAME="静•电"
+APP_VERSION="3.2.1"
 APP_DIR="静•电.app"
-DMG_NAME="静•电.dmg"
+DMG_NAME="静•电-${APP_VERSION}.dmg"
 DIST_DIR="dist"
 
 echo "🚀 开始打包流程..."
@@ -59,9 +60,9 @@ cat > "$APP_DIR/Contents/Info.plist" <<EOF
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>3.2.0</string>
+    <string>${APP_VERSION}</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>${APP_VERSION}</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>LSUIElement</key>
@@ -110,7 +111,7 @@ ln -s /Applications "$DMG_TMP/Applications"
 # -srcfolder: 源文件夹
 # -ov: 覆盖已存在文件
 # -format UDZO: 压缩格式
-hdiutil create -volname "静•电" -srcfolder "$DMG_TMP" -ov -format UDZO "$DIST_DIR/$DMG_NAME"
+hdiutil create -volname "${APP_NAME}" -srcfolder "$DMG_TMP" -ov -format UDZO "$DIST_DIR/$DMG_NAME"
 
 # 清理临时文件
 rm -rf "$DMG_TMP"
