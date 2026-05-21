@@ -115,5 +115,9 @@ We welcome contributions:
 
 MIT License. See [LICENSE](LICENSE) for details.
 
+## 🙏 Reference
+
+- https://github.com/EKKOLearnAI
+
 ---
 Copyright © 2026 Lyon. All rights reserved.

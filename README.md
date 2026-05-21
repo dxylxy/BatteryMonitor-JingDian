@@ -122,5 +122,9 @@ open dist/
 
 本项目基于 MIT 许可证开源，详见 [LICENSE](LICENSE)。
 
+## 🙏 引用
+
+- https://github.com/EKKOLearnAI
+
 ---
 Copyright © 2026 Lyon. All rights reserved.
